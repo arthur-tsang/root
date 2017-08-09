@@ -165,8 +165,8 @@ TF1Convolution::TF1Convolution(TString formula,  Double_t xmin, Double_t xmax, B
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Constructor from 2 function names where f1 and f2 are two functions known to
-/// ROOT
+/// constructor from two function names where f1 and f2 are two functions known
+/// to ROOT
 ///
 /// if the function names are not known to ROOT, tries to interpret them as
 /// TFormula

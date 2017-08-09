@@ -432,9 +432,9 @@ TF1::TF1(const char *name, const char *formula, Double_t xmin, Double_t xmax, EA
       fXmin = xmax; //when called from TF2,TF3
       fXmax = xmin;
    }
+
    // Create rep formula (no need to add to gROOT list since we will add the TF1 object)
-   
-   
+
    // First check if we are making a convolution
    if (TString(formula, 5) == "CONV(" && formula[strlen(formula)-1] == ')') {
       // Look for single ',' delimiter
