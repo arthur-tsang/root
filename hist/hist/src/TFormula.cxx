@@ -270,11 +270,6 @@ void TFormula::ReplaceAllNames(TString &formula, map<TString, TString> &substitu
    // Replace all instances of the name
    std::cout << "calling ReplaceAllNames on " << formula << std::endl;
 
-   
-   // add parentheses around the replacement string
-   // replacement.Prepend("(");
-   // replacement.Append(")");
-
    for (int i = 0; i < formula.Length(); i++) {
       // start of name
       // (a little subtle, since we want to match names like "{V0}" and "[0]")
@@ -291,7 +286,7 @@ void TFormula::ReplaceAllNames(TString &formula, map<TString, TString> &substitu
 	 // if we find the name, do the substitution
 	 if (substitutions.find(name) != substitutions.end()) {
 	    formula.Replace(i, name.Length(), "("+substitutions[name]+")");
-	    i += substitutions[name].Length() - 1;
+	    i += substitutions[name].Length()+2 - 1; // +2 for parentheses
 	    std::cout << "made substitution: " << name << " to " << substitutions[name] << std::endl;
 	 } else if (isalpha(formula[i])) {
 	    // if formula[i] is alpha, can skip to end of candidate name, otherwise, we'll just
@@ -300,28 +295,6 @@ void TFormula::ReplaceAllNames(TString &formula, map<TString, TString> &substitu
 	 }
       }
    }
-
-   
-   // TODO rewrite loop!
-   // int i = 0;
-   // while ((i = formula.Index(name, i, TString::kExact)) != kNPOS) {
-   //    std::cout << "value of i " << i << std::endl;
-   //    // replace if characters on either side of name are not function-name-characters
-   //    if ((i==0 || !IsFunctionNameChar(formula[i-1]))
-   // 	  && (i + name.Length() == formula.Length() || !IsFunctionNameChar(formula[i+name.Length()]))) {
-   // 	 formula.Replace(i, name.Length(), replacement);
-   // 	 i += replacement.Length();
-   //    } else {
-   // 	 i += name.Length();
-   //    }
-   //    std::cout << "end of loop value of i " << i << std::endl;
-   // }
-   
-   //std::cout << "Now our formula is : " << formula << std::endl;
-
-   // remove the parentheses we added
-   // replacement.Remove(0,1);
-   // replacement.Remove(replacement.Length() - 1);
 
    std::cout << "finished ReplaceAllNames" << std::endl;
 }
@@ -1152,7 +1125,7 @@ void TFormula::HandleParametrizedFunctions(TString &formula)
 	     formula.Index(',', openingParenthesisPos) != kNPOS &&
 	     formula.Index(',', openingParenthesisPos) < formula.Index(')', openingParenthesisPos))
 	 {
-	    // TODO: account for nested parentheses in if-condition
+	    // TODO: change condition to "if it's not a number and then close paren"
 	    std::cout << "Multiple arguments in parentheses -- leaving this for `HandleUserFunctions`" << std::endl;
 	    break;
 	 }
@@ -1401,10 +1374,7 @@ void TFormula::HandleUserFunctions(TString &formula) {
 
 		  // preprocess the formula so that nesting works
 		  PreProcessFormula(newName);
-		  // TODO: make this code resistant to name-swaps!
-		  // use a map and go through in one pass
-		  // ReplaceAllName(replacementFormula, oldName, newName);
-		  std::cout << "will replace " << oldName << " with " << newName << std::endl;
+
 		  argSubstitutions[oldName] = newName;
 	       }
 
@@ -1443,8 +1413,6 @@ void TFormula::HandleUserFunctions(TString &formula) {
 
 		     // preprocess the formula so that nesting works
 		     PreProcessFormula(newName);
-		     // todo also make this code resistant to name-swaps
-		     // ReplaceAllName(replacementFormula, oldName, newName);
 		     argSubstitutions[oldName] = newName;
 		  }
 		  
@@ -1479,9 +1447,11 @@ void TFormula::HandleUserFunctions(TString &formula) {
 
    // TODO
    // 
-   // - handle parametrized functions as well
-   // - handle only parameters (or only variables?)
-   // - google tests
+   // - handle only parameters (implicit variables) for parametrized functions
+   // - handle only variables (implicit parameters)
+   //   - inheriting values of old parameters?
+   //   - then take over functionality from old part of ProcessFormula?
+   // - add TFormulaParsingTests
    // - handle fancy parameter syntax
 }
 
