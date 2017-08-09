@@ -24,6 +24,8 @@
    }
 } (function(JSROOT, d3) {
 
+   "use strict";
+
    JSROOT.sources.push("2d");
 
    // do it here while require.js does not provide method to load css files
@@ -97,17 +99,18 @@
       }
    };
 
+   // ==========================================================================================
 
-   JSROOT.DrawOptions = function(opt) {
+   var DrawOptions = function(opt) {
       this.opt = opt && (typeof opt=="string") ? opt.toUpperCase().trim() : "";
       this.part = "";
    }
 
-   JSROOT.DrawOptions.prototype.empty = function() {
+   DrawOptions.prototype.empty = function() {
       return this.opt.length === 0;
    }
 
-   JSROOT.DrawOptions.prototype.check = function(name,postpart) {
+   DrawOptions.prototype.check = function(name,postpart) {
       var pos = this.opt.indexOf(name);
       if (pos < 0) return false;
       this.opt = this.opt.substr(0, pos) + this.opt.substr(pos + name.length);
@@ -123,33 +126,364 @@
       return true;
    }
 
-   JSROOT.DrawOptions.prototype.partAsInt = function(offset, dflt) {
+   DrawOptions.prototype.partAsInt = function(offset, dflt) {
       var val = this.part.replace( /^\D+/g, '');
       val = val ? parseInt(val,10) : Number.NaN;
       return isNaN(val) ? (dflt || 0) : val + (offset || 0);
    }
 
-   /**
-    * @class JSROOT.Painter Holder of different functions and classes for drawing
-    */
-   JSROOT.Painter = {};
+   /** @class JSROOT.Painter Holder of different functions and classes for drawing */
+   var Painter = {
+         Coord: {
+            kCARTESIAN : 1,
+            kPOLAR : 2,
+            kCYLINDRICAL : 3,
+            kSPHERICAL : 4,
+            kRAPIDITY : 5
+         },
+         root_colors: [],
+         root_line_styles: ["", "", "3,3", "1,2",
+                            "3,4,1,4", "5,3,1,3", "5,3,1,3,1,3,1,3", "5,5",
+                            "5,3,1,3,1,3", "20,5", "20,10,1,10", "1,3"],
+         root_markers: [  0, 100,   8,   7,   0,  //  0..4
+                          9, 100, 100, 100, 100,  //  5..9
+                        100, 100, 100, 100, 100,  // 10..14
+                        100, 100, 100, 100, 100,  // 15..19
+                        100, 103, 105, 104,   0,  // 20..24
+                          3,   4,   2,   1, 106,  // 25..29
+                          6,   7,   5, 102, 101], // 30..34
+          root_fonts: ['Arial', 'Times New Roman',
+                       'bTimes New Roman', 'biTimes New Roman', 'Arial',
+                       'oArial', 'bArial', 'boArial', 'Courier New',
+                       'oCourier New', 'bCourier New', 'boCourier New',
+                       'Symbol', 'Times New Roman', 'Wingdings', 'Symbol', 'Verdana'],
+          superscript_symbols_map: {
+                '1': '\xB9',
+                '2': '\xB2',
+                '3': '\xB3',
+                'o': '\xBA',
+                '0': '\u2070',
+                'i': '\u2071',
+                '4': '\u2074',
+                '5': '\u2075',
+                '6': '\u2076',
+                '7': '\u2077',
+                '8': '\u2078',
+                '9': '\u2079',
+                '+': '\u207A',
+                '-': '\u207B',
+                '=': '\u207C',
+                '(': '\u207D',
+                ')': '\u207E',
+                'n': '\u207F',
+                'a': '\xAA',
+                'v': '\u2C7D',
+                'h': '\u02B0',
+                'j': '\u02B2',
+                'r': '\u02B3',
+                'w': '\u02B7',
+                'y': '\u02B8',
+                'l': '\u02E1',
+                's': '\u02E2',
+                'x': '\u02E3'
+          },
+          subscript_symbols_map: {
+                  '0': '\u2080',
+                  '1': '\u2081',
+                  '2': '\u2082',
+                  '3': '\u2083',
+                  '4': '\u2084',
+                  '5': '\u2085',
+                  '6': '\u2086',
+                  '7': '\u2087',
+                  '8': '\u2088',
+                  '9': '\u2089',
+                  '+': '\u208A',
+                  '-': '\u208B',
+                  '=': '\u208C',
+                  '(': '\u208D',
+                  ')': '\u208E',
+                  'a': '\u2090',
+                  'e': '\u2091',
+                  'o': '\u2092',
+                  'x': '\u2093',
+                  'ə': '\u2094',
+                  'h': '\u2095',
+                  'k': '\u2096',
+                  'l': '\u2097',
+                  'm': '\u2098',
+                  'n': '\u2099',
+                  'p': '\u209A',
+                  's': '\u209B',
+                  't': '\u209C',
+                  'j': '\u2C7C'
+          },
+          symbols_map: {
+                // greek letters
+                '#alpha': '\u03B1',
+                '#beta': '\u03B2',
+                '#chi': '\u03C7',
+                '#delta': '\u03B4',
+                '#varepsilon': '\u03B5',
+                '#phi': '\u03C6',
+                '#gamma': '\u03B3',
+                '#eta': '\u03B7',
+                '#iota': '\u03B9',
+                '#varphi': '\u03C6',
+                '#kappa': '\u03BA',
+                '#lambda': '\u03BB',
+                '#mu': '\u03BC',
+                '#nu': '\u03BD',
+                '#omicron': '\u03BF',
+                '#pi': '\u03C0',
+                '#theta': '\u03B8',
+                '#rho': '\u03C1',
+                '#sigma': '\u03C3',
+                '#tau': '\u03C4',
+                '#upsilon': '\u03C5',
+                '#varomega': '\u03D6',
+                '#omega': '\u03C9',
+                '#xi': '\u03BE',
+                '#psi': '\u03C8',
+                '#zeta': '\u03B6',
+                '#Alpha': '\u0391',
+                '#Beta': '\u0392',
+                '#Chi': '\u03A7',
+                '#Delta': '\u0394',
+                '#Epsilon': '\u0395',
+                '#Phi': '\u03A6',
+                '#Gamma': '\u0393',
+                '#Eta': '\u0397',
+                '#Iota': '\u0399',
+                '#vartheta': '\u03D1',
+                '#Kappa': '\u039A',
+                '#Lambda': '\u039B',
+                '#Mu': '\u039C',
+                '#Nu': '\u039D',
+                '#Omicron': '\u039F',
+                '#Pi': '\u03A0',
+                '#Theta': '\u0398',
+                '#Rho': '\u03A1',
+                '#Sigma': '\u03A3',
+                '#Tau': '\u03A4',
+                '#Upsilon': '\u03A5',
+                '#varsigma': '\u03C2',
+                '#Omega': '\u03A9',
+                '#Xi': '\u039E',
+                '#Psi': '\u03A8',
+                '#Zeta': '\u0396',
+                '#varUpsilon': '\u03D2',
+                '#epsilon': '\u03B5',
+                // math symbols
 
-   JSROOT.Painter.createMenu = function(painter, maincallback) {
+                '#sqrt': '\u221A',
+
+                // from TLatex tables #2 & #3
+                '#leq': '\u2264',
+                '#/': '\u2044',
+                '#infty': '\u221E',
+                '#voidb': '\u0192',
+                '#club': '\u2663',
+                '#diamond': '\u2666',
+                '#heart': '\u2665',
+                '#spade': '\u2660',
+                '#leftrightarrow': '\u2194',
+                '#leftarrow': '\u2190',
+                '#uparrow': '\u2191',
+                '#rightarrow': '\u2192',
+                '#downarrow': '\u2193',
+                '#circ': '\u02C6', // ^
+                '#pm': '\xB1',
+                '#doublequote': '\u2033',
+                '#geq': '\u2265',
+                '#times': '\xD7',
+                '#propto': '\u221D',
+                '#partial': '\u2202',
+                '#bullet': '\u2022',
+                '#divide': '\xF7',
+                '#neq': '\u2260',
+                '#equiv': '\u2261',
+                '#approx': '\u2248', // should be \u2245 ?
+                '#3dots': '\u2026',
+                '#cbar': '\u007C',
+                '#topbar': '\xAF',
+                '#downleftarrow': '\u21B5',
+                '#aleph': '\u2135',
+                '#Jgothic': '\u2111',
+                '#Rgothic': '\u211C',
+                '#voidn': '\u2118',
+                '#otimes': '\u2297',
+                '#oplus': '\u2295',
+                '#oslash': '\u2205',
+                '#cap': '\u2229',
+                '#cup': '\u222A',
+                '#supseteq': '\u2287',
+                '#supset': '\u2283',
+                '#notsubset': '\u2284',
+                '#subseteq': '\u2286',
+                '#subset': '\u2282',
+                '#int': '\u222B',
+                '#in': '\u2208',
+                '#notin': '\u2209',
+                '#angle': '\u2220',
+                '#nabla': '\u2207',
+                '#oright': '\xAE',
+                '#ocopyright': '\xA9',
+                '#trademark': '\u2122',
+                '#prod': '\u220F',
+                '#surd': '\u221A',
+                '#upoint': '\u22C5',
+                '#corner': '\xAC',
+                '#wedge': '\u2227',
+                '#vee': '\u2228',
+                '#Leftrightarrow': '\u21D4',
+                '#Leftarrow': '\u21D0',
+                '#Uparrow': '\u21D1',
+                '#Rightarrow': '\u21D2',
+                '#Downarrow': '\u21D3',
+                '#LT': '\x3C',
+                '#void1': '\xAE',
+                '#copyright': '\xA9',
+                '#void3': '\u2122',
+                '#sum': '\u2211',
+                '#arctop': '',
+                '#lbar': '',
+                '#arcbottom': '',
+                '#void8': '',
+                '#bottombar': '\u230A',
+                '#arcbar': '',
+                '#ltbar': '',
+                '#AA': '\u212B',
+                '#aa': '\u00E5',
+                '#void06': '',
+                '#GT': '\x3E',
+                '#forall': '\u2200',
+                '#exists': '\u2203',
+                '#bar': '',
+                '#vec': '',
+                '#dot': '\u22C5',
+                '#hat': '\xB7',
+                '#ddot': '',
+                '#acute': '\acute',
+                '#grave': '',
+                '#check': '\u2713',
+                '#tilde': '\u02DC',
+                '#slash': '\u2044',
+                '#hbar': '\u0127',
+                '#box': '',
+                '#Box': '',
+                '#parallel': '',
+                '#perp': '\u22A5',
+                '#odot': '',
+                '#left': '',
+                '#right': ''
+          },
+          math_symbols_map: {
+                '#LT':"\\langle",
+                '#GT':"\\rangle",
+                '#club':"\\clubsuit",
+                '#spade':"\\spadesuit",
+                '#heart':"\\heartsuit",
+                '#diamond':"\\diamondsuit",
+                '#voidn':"\\wp",
+                '#voidb':"f",
+                '#copyright':"(c)",
+                '#ocopyright':"(c)",
+                '#trademark':"TM",
+                '#void3':"TM",
+                '#oright':"R",
+                '#void1':"R",
+                '#3dots':"\\ldots",
+                '#lbar':"\\mid",
+                '#void8':"\\mid",
+                '#divide':"\\div",
+                '#Jgothic':"\\Im",
+                '#Rgothic':"\\Re",
+                '#doublequote':"\"",
+                '#plus':"+",
+                '#diamond':"\\diamondsuit",
+                '#voidn':"\\wp",
+                '#voidb':"f",
+                '#copyright':"(c)",
+                '#ocopyright':"(c)",
+                '#trademark':"TM",
+                '#void3':"TM",
+                '#oright':"R",
+                '#void1':"R",
+                '#3dots':"\\ldots",
+                '#lbar':"\\mid",
+                '#void8':"\\mid",
+                '#divide':"\\div",
+                '#Jgothic':"\\Im",
+                '#Rgothic':"\\Re",
+                '#doublequote':"\"",
+                '#plus':"+",
+                '#minus':"-",
+                '#\/':"/",
+                '#upoint':".",
+                '#aa':"\\mathring{a}",
+                '#AA':"\\mathring{A}",
+                '#omicron':"o",
+                '#Alpha':"A",
+                '#Beta':"B",
+                '#Epsilon':"E",
+                '#Zeta':"Z",
+                '#Eta':"H",
+                '#Iota':"I",
+                '#Kappa':"K",
+                '#Mu':"M",
+                '#Nu':"N",
+                '#Omicron':"O",
+                '#Rho':"P",
+                '#Tau':"T",
+                '#Chi':"X",
+                '#varomega':"\\varpi",
+                '#corner':"?",
+                '#ltbar':"?",
+                '#bottombar':"?",
+                '#notsubset':"?",
+                '#arcbottom':"?",
+                '#cbar':"?",
+                '#arctop':"?",
+                '#topbar':"?",
+                '#arcbar':"?",
+                '#downleftarrow':"?",
+                '#splitline':"\\genfrac{}{}{0pt}{}",
+                '#it':"\\textit",
+                '#bf':"\\textbf",
+                '#frac':"\\frac",
+                '#left{':"\\lbrace",
+                '#right}':"\\rbrace",
+                '#left\\[':"\\lbrack",
+                '#right\\]':"\\rbrack",
+                '#\\[\\]{':"\\lbrack",
+                ' } ':"\\rbrack",
+                '#\\[':"\\lbrack",
+                '#\\]':"\\rbrack",
+                '#{':"\\lbrace",
+                '#}':"\\rbrace",
+                ' ':"\\;"
+          }
+   };
+
+   JSROOT.Painter = Painter; // export here to avoid ambiguity
+
+   Painter.createMenu = function(painter, maincallback) {
       // dummy functions, forward call to the jquery function
       document.body.style.cursor = 'wait';
-      JSROOT.AssertPrerequisites('hierarchy;jq2d', function() {
+      JSROOT.AssertPrerequisites('hierarchy;jq2d;openui5;', function() {
          document.body.style.cursor = 'auto';
-         JSROOT.Painter.createMenu(painter, maincallback);
+         Painter.createMenu(painter, maincallback);
       });
    }
 
-   JSROOT.Painter.closeMenu = function(menuname) {
+   Painter.closeMenu = function(menuname) {
       var x = document.getElementById(menuname || 'root_ctx_menu');
       if (x) { x.parentNode.removeChild(x); return true; }
       return false;
    }
 
-   JSROOT.Painter.readStyleFromURL = function(url) {
+   Painter.readStyleFromURL = function(url) {
       var optimize = JSROOT.GetUrlOption("optimize", url);
       if (optimize=="") JSROOT.gStyle.OptimizeDraw = 2; else
       if (optimize!==null) {
@@ -207,18 +541,8 @@
       if (geocomp!==null) JSROOT.gStyle.GeoCompressComp = (geocomp!=='0') && (geocomp!=='false');
    }
 
-   JSROOT.Painter.Coord = {
-      kCARTESIAN : 1,
-      kPOLAR : 2,
-      kCYLINDRICAL : 3,
-      kSPHERICAL : 4,
-      kRAPIDITY : 5
-   }
-
    /** Function that generates all root colors */
-   JSROOT.Painter.root_colors = [];
-
-   JSROOT.Painter.createRootColors = function() {
+   Painter.createRootColors = function() {
       var colorMap = ['white','black','red','green','blue','yellow','magenta','cyan','rgb(89,212,84)','rgb(89,84,217)', 'white'];
       colorMap[110] = 'white';
 
@@ -242,10 +566,10 @@
          }
       }
 
-      JSROOT.Painter.root_colors = colorMap;
+      Painter.root_colors = colorMap;
    }
 
-   JSROOT.Painter.MakeColorRGB = function(col) {
+   Painter.MakeColorRGB = function(col) {
       if ((col==null) || (col._typename != 'TColor')) return null;
       var rgb = Math.round(col.fRed*255) + "," + Math.round(col.fGreen*255) + "," + Math.round(col.fBlue*255);
       if ((col.fAlpha === undefined) || (col.fAlpha == 1.))
@@ -266,7 +590,7 @@
       return rgb;
    }
 
-   JSROOT.Painter.adoptRootColors = function(objarr) {
+   Painter.adoptRootColors = function(objarr) {
       if (!objarr || !objarr.arr) return;
 
       for (var n = 0; n < objarr.arr.length; ++n) {
@@ -276,32 +600,18 @@
          var num = col.fNumber;
          if ((num<0) || (num>4096)) continue;
 
-         var rgb = JSROOT.Painter.MakeColorRGB(col);
+         var rgb = Painter.MakeColorRGB(col);
          if (rgb == null) continue;
 
-         if (JSROOT.Painter.root_colors[num] != rgb)
-            JSROOT.Painter.root_colors[num] = rgb;
+         if (Painter.root_colors[num] != rgb)
+            Painter.root_colors[num] = rgb;
       }
    }
 
-   JSROOT.Painter.root_line_styles = ["", "", "3,3", "1,2",
-         "3,4,1,4", "5,3,1,3", "5,3,1,3,1,3,1,3", "5,5",
-         "5,3,1,3,1,3", "20,5", "20,10,1,10", "1,3"];
-
-   // Initialize ROOT markers
-   JSROOT.Painter.root_markers =
-         [ 0, 100,   8,   7,   0,  //  0..4
-           9, 100, 100, 100, 100,  //  5..9
-         100, 100, 100, 100, 100,  // 10..14
-         100, 100, 100, 100, 100,  // 15..19
-         100, 103, 105, 104,   0,  // 20..24
-           3,   4,   2,   1, 106,  // 25..29
-           6,   7,   5, 102, 101]; // 30..34
-
    /** Function returns the ready to use marker for drawing */
-   JSROOT.Painter.createAttMarker = function(attmarker, style) {
+   Painter.createAttMarker = function(attmarker, style) {
 
-      var marker_color = JSROOT.Painter.root_colors[attmarker.fMarkerColor];
+      var marker_color = Painter.root_colors[attmarker.fMarkerColor];
 
       if (!style || (style<0)) style = attmarker.fMarkerStyle;
 
@@ -338,7 +648,7 @@
             return true;
          }
 
-         var marker_kind = ((this.style>0) && (this.style<JSROOT.Painter.root_markers.length)) ? JSROOT.Painter.root_markers[this.style] : 100;
+         var marker_kind = ((this.style > 0) && (this.style < Painter.root_markers.length)) ? Painter.root_markers[this.style] : 100;
          var shape = marker_kind % 100;
 
          this.fill = (marker_kind>=100);
@@ -430,20 +740,19 @@
       return res;
    }
 
-   JSROOT.Painter.createAttLine = function(attline, borderw, can_excl) {
-
+   Painter.createAttLine = function(attline, borderw, can_excl) {
       var color = 'black', _width = 0, style = 0;
       if (typeof attline == 'string') {
          color = attline;
          if (color!=='none') _width = 1;
       } else
       if (typeof attline == 'object') {
-         if ('fLineColor' in attline) color = JSROOT.Painter.root_colors[attline.fLineColor];
+         if ('fLineColor' in attline) color = Painter.root_colors[attline.fLineColor];
          if ('fLineWidth' in attline) _width = attline.fLineWidth;
          if ('fLineStyle' in attline) style = attline.fLineStyle;
       } else
-      if ((attline!==undefined) && !isNaN(attline)) {
-         color = JSROOT.Painter.root_colors[attline];
+      if ((attline !== undefined) && !isNaN(attline)) {
+         color = Painter.root_colors[attline];
       }
 
       if (borderw!==undefined) _width = borderw;
@@ -452,7 +761,7 @@
           used: true, // can mark object if it used or not,
           color: color,
           width: _width,
-          dash: JSROOT.Painter.root_line_styles[style]
+          dash: Painter.root_line_styles[style]
       };
 
       if (_width==0) line.color = 'none';
@@ -503,25 +812,19 @@
       return line;
    }
 
-   JSROOT.Painter.clearCuts = function(chopt) {
+   Painter.clearCuts = function(chopt) {
       /* decode string "chopt" and remove graphical cuts */
-      var left = chopt.indexOf('[');
-      var right = chopt.indexOf(']');
+      var left = chopt.indexOf('['),
+          right = chopt.indexOf(']');
       if ((left>=0) && (right>=0) && (left<right))
           for (var i = left; i <= right; ++i) chopt[i] = ' ';
       return chopt;
    }
 
-   JSROOT.Painter.root_fonts = new Array('Arial', 'Times New Roman',
-         'bTimes New Roman', 'biTimes New Roman', 'Arial',
-         'oArial', 'bArial', 'boArial', 'Courier New',
-         'oCourier New', 'bCourier New', 'boCourier New',
-         'Symbol', 'Times New Roman', 'Wingdings', 'Symbol', 'Verdana');
-
-   JSROOT.Painter.getFontDetails = function(fontIndex, size) {
+   Painter.getFontDetails = function(fontIndex, size) {
 
       var res = { name: "Arial", size: Math.round(size || 11), weight: null, style: null },
-          fontName = JSROOT.Painter.root_fonts[Math.floor(fontIndex / 10)] || "";
+          fontName = Painter.root_fonts[Math.floor(fontIndex / 10)] || "";
 
       while (fontName.length > 0) {
          if (fontName[0]==='b') res.weight = "bold"; else
@@ -566,7 +869,7 @@
       return res;
    }
 
-   JSROOT.Painter.chooseTimeFormat = function(awidth, ticks) {
+   Painter.chooseTimeFormat = function(awidth, ticks) {
       if (awidth < .5) return ticks ? "%S.%L" : "%M:%S.%L";
       if (awidth < 30) return ticks ? "%Mm%S" : "%H:%M:%S";
       awidth /= 60; if (awidth < 30) return ticks ? "%Hh%M" : "%d/%m %H:%M";
@@ -577,13 +880,13 @@
       return "%Y";
    }
 
-   JSROOT.Painter.getTimeFormat = function(axis) {
+   Painter.getTimeFormat = function(axis) {
       var idF = axis.fTimeFormat.indexOf('%F');
       if (idF >= 0) return axis.fTimeFormat.substr(0, idF);
       return axis.fTimeFormat;
    }
 
-   JSROOT.Painter.getTimeOffset = function(axis) {
+   Painter.getTimeOffset = function(axis) {
       var idF = axis.fTimeFormat.indexOf('%F');
       if (idF < 0) return JSROOT.gStyle.fTimeOffset*1000;
       var sof = axis.fTimeFormat.substr(idF + 2);
@@ -614,273 +917,47 @@
       return dt.getTime();
    }
 
-   JSROOT.Painter.superscript_symbols_map = {
-       '1': '\xB9',
-       '2': '\xB2',
-       '3': '\xB3',
-       'o': '\xBA',
-       '0': '\u2070',
-       'i': '\u2071',
-       '4': '\u2074',
-       '5': '\u2075',
-       '6': '\u2076',
-       '7': '\u2077',
-       '8': '\u2078',
-       '9': '\u2079',
-       '+': '\u207A',
-       '-': '\u207B',
-       '=': '\u207C',
-       '(': '\u207D',
-       ')': '\u207E',
-       'n': '\u207F',
-       'a': '\xAA',
-       'v': '\u2C7D',
-       'h': '\u02B0',
-       'j': '\u02B2',
-       'r': '\u02B3',
-       'w': '\u02B7',
-       'y': '\u02B8',
-       'l': '\u02E1',
-       's': '\u02E2',
-       'x': '\u02E3'
-   }
-
-   JSROOT.Painter.subscript_symbols_map = {
-         '0': '\u2080',
-         '1': '\u2081',
-         '2': '\u2082',
-         '3': '\u2083',
-         '4': '\u2084',
-         '5': '\u2085',
-         '6': '\u2086',
-         '7': '\u2087',
-         '8': '\u2088',
-         '9': '\u2089',
-         '+': '\u208A',
-         '-': '\u208B',
-         '=': '\u208C',
-         '(': '\u208D',
-         ')': '\u208E',
-         'a': '\u2090',
-         'e': '\u2091',
-         'o': '\u2092',
-         'x': '\u2093',
-         'ə': '\u2094',
-         'h': '\u2095',
-         'k': '\u2096',
-         'l': '\u2097',
-         'm': '\u2098',
-         'n': '\u2099',
-         'p': '\u209A',
-         's': '\u209B',
-         't': '\u209C',
-         'j': '\u2C7C'
-    }
-
-   JSROOT.Painter.translateSuperscript = function(_exp) {
+   Painter.translateSuperscript = function(_exp) {
       var res = "";
       for (var n=0;n<_exp.length;++n)
          res += (this.superscript_symbols_map[_exp[n]] || _exp[n]);
       return res;
    }
 
-   JSROOT.Painter.translateSubscript = function(_sub) {
+   Painter.translateSubscript = function(_sub) {
       var res = "";
       for (var n=0;n<_sub.length;++n)
          res += (this.subscript_symbols_map[_sub[n]] || _sub[n]);
       return res;
    }
 
-   JSROOT.Painter.formatExp = function(label) {
+   Painter.formatExp = function(label) {
       var str = label.toLowerCase().replace('e+', 'x10@').replace('e-', 'x10@-'),
           pos = str.indexOf('@'),
-          exp = JSROOT.Painter.translateSuperscript(str.substr(pos+1)),
+          exp = Painter.translateSuperscript(str.substr(pos+1)),
           str = str.substr(0, pos);
 
       return ((str === "1x10") ? "10" : str) + exp;
    }
 
-   JSROOT.Painter.symbols_map = {
-      // greek letters
-      '#alpha': '\u03B1',
-      '#beta': '\u03B2',
-      '#chi': '\u03C7',
-      '#delta': '\u03B4',
-      '#varepsilon': '\u03B5',
-      '#phi': '\u03C6',
-      '#gamma': '\u03B3',
-      '#eta': '\u03B7',
-      '#iota': '\u03B9',
-      '#varphi': '\u03C6',
-      '#kappa': '\u03BA',
-      '#lambda': '\u03BB',
-      '#mu': '\u03BC',
-      '#nu': '\u03BD',
-      '#omicron': '\u03BF',
-      '#pi': '\u03C0',
-      '#theta': '\u03B8',
-      '#rho': '\u03C1',
-      '#sigma': '\u03C3',
-      '#tau': '\u03C4',
-      '#upsilon': '\u03C5',
-      '#varomega': '\u03D6',
-      '#omega': '\u03C9',
-      '#xi': '\u03BE',
-      '#psi': '\u03C8',
-      '#zeta': '\u03B6',
-      '#Alpha': '\u0391',
-      '#Beta': '\u0392',
-      '#Chi': '\u03A7',
-      '#Delta': '\u0394',
-      '#Epsilon': '\u0395',
-      '#Phi': '\u03A6',
-      '#Gamma': '\u0393',
-      '#Eta': '\u0397',
-      '#Iota': '\u0399',
-      '#vartheta': '\u03D1',
-      '#Kappa': '\u039A',
-      '#Lambda': '\u039B',
-      '#Mu': '\u039C',
-      '#Nu': '\u039D',
-      '#Omicron': '\u039F',
-      '#Pi': '\u03A0',
-      '#Theta': '\u0398',
-      '#Rho': '\u03A1',
-      '#Sigma': '\u03A3',
-      '#Tau': '\u03A4',
-      '#Upsilon': '\u03A5',
-      '#varsigma': '\u03C2',
-      '#Omega': '\u03A9',
-      '#Xi': '\u039E',
-      '#Psi': '\u03A8',
-      '#Zeta': '\u0396',
-      '#varUpsilon': '\u03D2',
-      '#epsilon': '\u03B5',
-      // math symbols
-
-      '#sqrt': '\u221A',
-
-      // from TLatex tables #2 & #3
-      '#leq': '\u2264',
-      '#/': '\u2044',
-      '#infty': '\u221E',
-      '#voidb': '\u0192',
-      '#club': '\u2663',
-      '#diamond': '\u2666',
-      '#heart': '\u2665',
-      '#spade': '\u2660',
-      '#leftrightarrow': '\u2194',
-      '#leftarrow': '\u2190',
-      '#uparrow': '\u2191',
-      '#rightarrow': '\u2192',
-      '#downarrow': '\u2193',
-      '#circ': '\u02C6', // ^
-      '#pm': '\xB1',
-      '#doublequote': '\u2033',
-      '#geq': '\u2265',
-      '#times': '\xD7',
-      '#propto': '\u221D',
-      '#partial': '\u2202',
-      '#bullet': '\u2022',
-      '#divide': '\xF7',
-      '#neq': '\u2260',
-      '#equiv': '\u2261',
-      '#approx': '\u2248', // should be \u2245 ?
-      '#3dots': '\u2026',
-      '#cbar': '\u007C',
-      '#topbar': '\xAF',
-      '#downleftarrow': '\u21B5',
-      '#aleph': '\u2135',
-      '#Jgothic': '\u2111',
-      '#Rgothic': '\u211C',
-      '#voidn': '\u2118',
-      '#otimes': '\u2297',
-      '#oplus': '\u2295',
-      '#oslash': '\u2205',
-      '#cap': '\u2229',
-      '#cup': '\u222A',
-      '#supseteq': '\u2287',
-      '#supset': '\u2283',
-      '#notsubset': '\u2284',
-      '#subseteq': '\u2286',
-      '#subset': '\u2282',
-      '#int': '\u222B',
-      '#in': '\u2208',
-      '#notin': '\u2209',
-      '#angle': '\u2220',
-      '#nabla': '\u2207',
-      '#oright': '\xAE',
-      '#ocopyright': '\xA9',
-      '#trademark': '\u2122',
-      '#prod': '\u220F',
-      '#surd': '\u221A',
-      '#upoint': '\u22C5',
-      '#corner': '\xAC',
-      '#wedge': '\u2227',
-      '#vee': '\u2228',
-      '#Leftrightarrow': '\u21D4',
-      '#Leftarrow': '\u21D0',
-      '#Uparrow': '\u21D1',
-      '#Rightarrow': '\u21D2',
-      '#Downarrow': '\u21D3',
-      '#LT': '\x3C',
-      '#void1': '\xAE',
-      '#copyright': '\xA9',
-      '#void3': '\u2122',
-      '#sum': '\u2211',
-      '#arctop': '',
-      '#lbar': '',
-      '#arcbottom': '',
-      '#void8': '',
-      '#bottombar': '\u230A',
-      '#arcbar': '',
-      '#ltbar': '',
-      '#AA': '\u212B',
-      '#aa': '\u00E5',
-      '#void06': '',
-      '#GT': '\x3E',
-      '#forall': '\u2200',
-      '#exists': '\u2203',
-      '#bar': '',
-      '#vec': '',
-      '#dot': '\u22C5',
-      '#hat': '\xB7',
-      '#ddot': '',
-      '#acute': '\acute',
-      '#grave': '',
-      '#check': '\u2713',
-      '#tilde': '\u02DC',
-      '#slash': '\u2044',
-      '#hbar': '\u0127',
-      '#box': '',
-      '#Box': '',
-      '#parallel': '',
-      '#perp': '\u22A5',
-      '#odot': '',
-      '#left': '',
-      '#right': ''
-   };
-
-   JSROOT.Painter.translateLaTeX = function(_string) {
-      var str = _string, i;
-
-      var lstr = str.match(/\^{(.*?)}/gi);
+   Painter.translateLaTeX = function(str) {
+      var i, lstr = str.match(/\^{(.*?)}/gi);
       if (lstr)
          for (i = 0; i < lstr.length; ++i)
-            str = str.replace(lstr[i], JSROOT.Painter.translateSuperscript(lstr[i].substr(2, lstr[i].length-3)));
+            str = str.replace(lstr[i], Painter.translateSuperscript(lstr[i].substr(2, lstr[i].length-3)));
 
       lstr = str.match(/\_{(.*?)}/gi);
       if (lstr)
          for (i = 0; i < lstr.length; ++i)
-            str = str.replace(lstr[i], JSROOT.Painter.translateSubscript(lstr[i].substr(2, lstr[i].length-3)));
+            str = str.replace(lstr[i], Painter.translateSubscript(lstr[i].substr(2, lstr[i].length-3)));
 
       lstr = str.match(/\#sqrt{(.*?)}/gi);
       if (lstr)
          for (i = 0; i < lstr.length; ++i)
             str = str.replace(lstr[i], lstr[i].replace(' ', '').replace('#sqrt{', '#sqrt').replace('}', ''));
 
-      for (i in JSROOT.Painter.symbols_map)
-         str = str.replace(new RegExp(i,'g'), JSROOT.Painter.symbols_map[i]);
+      for (i in Painter.symbols_map)
+         str = str.replace(new RegExp(i,'g'), Painter.symbols_map[i]);
 
       // simple workaround for simple #splitline{first_line}{second_line}
       if ((str.indexOf("#splitline{")==0) && (str[str.length-1]=="}")) {
@@ -892,105 +969,18 @@
       return str.replace(/\^2/gi,'\xB2').replace(/\^3/gi,'\xB3');
    }
 
-   JSROOT.Painter.isAnyLatex = function(str) {
+   Painter.isAnyLatex = function(str) {
       return (str.indexOf("#")>=0) || (str.indexOf("\\")>=0) || (str.indexOf("{")>=0);
    }
 
-   JSROOT.Painter.math_symbols_map = {
-         '#LT':"\\langle",
-         '#GT':"\\rangle",
-         '#club':"\\clubsuit",
-         '#spade':"\\spadesuit",
-         '#heart':"\\heartsuit",
-         '#diamond':"\\diamondsuit",
-         '#voidn':"\\wp",
-         '#voidb':"f",
-         '#copyright':"(c)",
-         '#ocopyright':"(c)",
-         '#trademark':"TM",
-         '#void3':"TM",
-         '#oright':"R",
-         '#void1':"R",
-         '#3dots':"\\ldots",
-         '#lbar':"\\mid",
-         '#void8':"\\mid",
-         '#divide':"\\div",
-         '#Jgothic':"\\Im",
-         '#Rgothic':"\\Re",
-         '#doublequote':"\"",
-         '#plus':"+",
-         '#diamond':"\\diamondsuit",
-         '#voidn':"\\wp",
-         '#voidb':"f",
-         '#copyright':"(c)",
-         '#ocopyright':"(c)",
-         '#trademark':"TM",
-         '#void3':"TM",
-         '#oright':"R",
-         '#void1':"R",
-         '#3dots':"\\ldots",
-         '#lbar':"\\mid",
-         '#void8':"\\mid",
-         '#divide':"\\div",
-         '#Jgothic':"\\Im",
-         '#Rgothic':"\\Re",
-         '#doublequote':"\"",
-         '#plus':"+",
-         '#minus':"-",
-         '#\/':"/",
-         '#upoint':".",
-         '#aa':"\\mathring{a}",
-         '#AA':"\\mathring{A}",
-         '#omicron':"o",
-         '#Alpha':"A",
-         '#Beta':"B",
-         '#Epsilon':"E",
-         '#Zeta':"Z",
-         '#Eta':"H",
-         '#Iota':"I",
-         '#Kappa':"K",
-         '#Mu':"M",
-         '#Nu':"N",
-         '#Omicron':"O",
-         '#Rho':"P",
-         '#Tau':"T",
-         '#Chi':"X",
-         '#varomega':"\\varpi",
-         '#corner':"?",
-         '#ltbar':"?",
-         '#bottombar':"?",
-         '#notsubset':"?",
-         '#arcbottom':"?",
-         '#cbar':"?",
-         '#arctop':"?",
-         '#topbar':"?",
-         '#arcbar':"?",
-         '#downleftarrow':"?",
-         '#splitline':"\\genfrac{}{}{0pt}{}",
-         '#it':"\\textit",
-         '#bf':"\\textbf",
-         '#frac':"\\frac",
-         '#left{':"\\lbrace",
-         '#right}':"\\rbrace",
-         '#left\\[':"\\lbrack",
-         '#right\\]':"\\rbrack",
-         '#\\[\\]{':"\\lbrack",
-         ' } ':"\\rbrack",
-         '#\\[':"\\lbrack",
-         '#\\]':"\\rbrack",
-         '#{':"\\lbrace",
-         '#}':"\\rbrace",
-         ' ':"\\;"
-   };
-
-   JSROOT.Painter.translateMath = function(str, kind, color) {
+   Painter.translateMath = function(str, kind, color) {
       // function translate ROOT TLatex into MathJax format
 
       if (kind!=2) {
-         for (var x in JSROOT.Painter.math_symbols_map)
-            str = str.replace(new RegExp(x,'g'), JSROOT.Painter.math_symbols_map[x]);
+         for (var x in Painter.math_symbols_map)
+            str = str.replace(new RegExp(x,'g'), Painter.math_symbols_map[x]);
 
-         for (var x in JSROOT.Painter.symbols_map)
+         for (var x in Painter.symbols_map)
             str = str.replace(new RegExp(x,'g'), "\\" + x.substr(1));
       } else {
          str = str.replace(/\\\^/g, "\\hat");
@@ -1006,7 +996,7 @@
       return "\\(\\color{" + color + '}' + str + "\\)";
    }
 
-   JSROOT.Painter.BuildSvgPath = function(kind, bins, height, ndig) {
+   Painter.BuildSvgPath = function(kind, bins, height, ndig) {
       // function used to provide svg:path for the smoothed curves
       // reuse code from d3.js. Used in TH1, TF1 and TGraph painters
       // kind should contain "bezier" or "line".
@@ -2439,14 +2429,14 @@
    }
 
 
-   JSROOT.LongPollSocket = function(addr) {
+   var LongPollSocket = function(addr) {
 
       this.path = addr;
       this.connid = null;
       this.req = null;
 
       this.nextrequest = function(data, kind) {
-         var url = this.path;
+         var url = this.path, sync = "";
          if (kind === "connect") {
             url+="?connect";
             this.connid = "connect";
@@ -2455,6 +2445,7 @@
             if ((this.connid===null) || (this.connid==="close")) return;
             url+="?connection="+this.connid + "&close";
             this.connid = "close";
+            if (JSROOT.browser.qt5) sync = ";sync"; // use sync mode to close qt5 webengine
          } else
          if ((this.connid===null) || (typeof this.connid!=='number')) {
             return console.error("No connection");
@@ -2470,7 +2461,7 @@
             url += post;
          }
 
-         var req = JSROOT.NewHttpRequest(url, "text", function(res) {
+         var req = JSROOT.NewHttpRequest(url, "text" + sync, function(res) {
             if (res===null) res = this.response; // workaround for WebEngine - it does not handle content correctly
             if (this.handle.req === this) {
                this.handle.req = null; // get response for existing dummy request
@@ -2512,125 +2503,184 @@
 
       this.close = function() { this.nextrequest("", "close"); }
 
+      this.nextrequest("", "connect");
+
+      return this;
+   }
+
+   var Cef3QuerySocket = function(addr) {
+      // make very similar to longpoll
+      // create persistent CEF requests which could be use from client application at eny time
+
+      if (!window || !('cefQuery' in window)) return null;
+
+      this.path = addr;
+      this.connid = null;
+
+
+      this.nextrequest = function(data, kind) {
+         var req = { request: "", persistent: false };
+         if (kind === "connect") {
+            req.request = "connect";
+            req.persistent = true; // this initial request will be used for all messages from the server
+            this.connid = "connect";
+         } else
+         if (kind === "close") {
+            if ((this.connid===null) || (this.connid==="close")) return;
+            req.request = this.connid + '::close';
+            this.connid = "close";
+         } else
+         if ((this.connid===null) || (typeof this.connid!=='number')) {
+            return console.error("No connection");
+         } else {
+            req.request = this.connid + '::post';
+            if (data) req.request += "::" + data;
+         }
+
+         if (!req.request) return console.error("No CEF request");
+
+         req.request = this.path + "::" + req.request; // URL always preceed any command
+
+         req.onSuccess = this.onSuccess.bind(this);
+         req.onFailure = this.onFailure.bind(this);
+
+         this.cefid = window.cefQuery(req); // equvalent to req.send
+
+         return this;
+      }
+
+      this.onFailure = function(error_code, error_message) {
+         console.log("CEF_ERR: " + error_code);
+         if (typeof this.onerror === 'function') this.onerror("failure with connid " + (this.connid || "---"));
+         this.connid = null;
+      };
+
+      this.onSuccess = function(response) {
+         if (!response) return; // normal situation when request does not send any reply
+
+         if (this.connid==="connect") {
+            this.connid = parseInt(response);
+            console.log('Get new CEF connection with id ' + this.connid);
+            if (typeof this.onopen == 'function') this.onopen();
+         } else
+         if (this.connid==="close") {
+            if (typeof this.onclose == 'function') this.onclose();
+         } else {
+            if ((typeof this.onmessage==='function') && response)
+               this.onmessage({ data: response });
+         }
+      }
+
+      this.send = function(str) { this.nextrequest(str); }
+
+      this.close = function() {
+         this.nextrequest("", "close");
+         if (this.cefid) window.cefQueryCancel(this.cefid);
+         delete this.cefid;
+      }
+
       this.nextrequest("","connect");
 
       return this;
    }
 
-   TObjectPainter.prototype.OpenWebsocket = function(use_longpoll) {
+   TObjectPainter.prototype.SendWebsocket = function(msg) {
+      if (!this._websocket) return false;
+      this._websocket.send(msg);
+      if (this._websocket_kind !== "websocket") return true;
+      if (this._websocket_timer) clearTimeout(this._websocket_timer);
+      this._websocket_timer = setTimeout(this.KeepAliveWebsocket.bind(this), 10000);
+      return true;
+   }
+
+   TObjectPainter.prototype.KeepAliveWebsocket = function() {
+      delete this._websocket_timer;
+      this.SendWebsocket("KEEPALIVE");
+   }
+
+   TObjectPainter.prototype.CloseWebsocket = function(force) {
+      if (this._websocket && this._websocket_state > 0) {
+         this._websocket_state = force ? -1 : 0; // -1 prevent socket from reopening
+         this._websocket.onclose = null; // hide normal handler
+         this._websocket.close();
+         delete this._websocket;
+      }
+   }
+
+   TObjectPainter.prototype.OpenWebsocket = function(socket_kind) {
       // create websocket for current object (canvas)
       // via websocket one recieved many extra information
 
       delete this._websocket;
 
+      if (socket_kind=='cefquery' && (!window || !('cefQuery' in window))) socket_kind = 'longpoll';
+
       // this._websocket = conn;
-      this._use_longpoll = use_longpoll;
-      this._websocket_opened = false;
+      this._websocket_kind = socket_kind;
+      this._websocket_state = 0;
 
       var pthis = this, sum1 = 0, sum2 = 0, cnt = 0;
 
       function retry_open(first_time) {
-    	 console.log("try again");
 
-    	 if (pthis._websocket_opened) return;
-    	 if (pthis._websocket) pthis._websocket.close();
-    	 delete pthis._websocket;
+      if (pthis._websocket_state != 0) return;
+      console.log("try open wensocket again " + pthis._websocket_state);
+      if (pthis._websocket) pthis._websocket.close();
+      delete pthis._websocket;
 
-         var path = window.location.href, conn = null;
+      var path = window.location.href, conn = null;
 
-         if (!pthis._use_longpoll && first_time) {
-            path = path.replace("http://", "ws://");
-            path = path.replace("https://", "wss://");
-            var pos = path.indexOf("draw.htm");
-            if (pos < 0) return;
-            path = path.substr(0,pos) + "root.websocket";
-            console.log('configure websocket ' + path);
-            conn = new WebSocket(path);
-         } else {
-            var pos = path.indexOf("draw.htm");
-            if (pos < 0) return;
-            path = path.substr(0,pos) + "root.longpoll";
-            console.log('configure longpoll ' + path);
-            conn = JSROOT.LongPollSocket(path);
-         }
+      if (pthis._websocket_kind == 'cefquery') {
+         var pos = path.indexOf("draw.htm");
+         if (pos < 0) return;
+         path = path.substr(0,pos);
 
-    	 pthis._websocket = conn;
+         if (path.indexOf("rootscheme://rootserver")==0) path = path.substr(23);
+         console.log('configure cefquery ' + path);
+         conn = new Cef3QuerySocket(path);
+      } else
+      if ((pthis._websocket_kind !== 'longpoll') && first_time) {
+         path = path.replace("http://", "ws://");
+         path = path.replace("https://", "wss://");
+         var pos = path.indexOf("draw.htm");
+         if (pos < 0) return;
+         path = path.substr(0,pos) + "root.websocket";
+         console.log('configure websocket ' + path);
+         conn = new WebSocket(path);
+      } else {
+         var pos = path.indexOf("draw.htm");
+         if (pos < 0) return;
+         path = path.substr(0,pos) + "root.longpoll";
+         console.log('configure longpoll ' + path);
+         conn = new LongPollSocket(path);
+      }
+
+      if (!conn) return;
+
+      pthis._websocket = conn;
 
       conn.onopen = function() {
          console.log('websocket initialized');
-         pthis._websocket_opened = true;
-         conn.send('READY'); // indicate that we are ready to recieve JSON code (or any other big peace)
+         pthis._websocket_state = 1;
+         if (typeof pthis.OnWebsocketOpened == 'function')
+            pthis.OnWebsocketOpened(conn);
       }
 
       conn.onmessage = function (e) {
-         var d = e.data;
-         if (typeof d != 'string') return console.log("msg",d);
+         var msg = e.data;
+         if (typeof msg != 'string') return console.log("unsupported message kind: " + (typeof msg));
 
-         if (d.substr(0,4)=='SNAP') {
-            var snap = JSROOT.parse(d.substr(4));
-
-            if (typeof pthis.RedrawPadSnap === 'function') {
-               pthis.RedrawPadSnap(snap, function() {
-                  var reply = pthis.GetAllRanges();
-                  console.log("ranges", reply);
-                  conn.send(reply ? 'RREADY:' + reply : "READY" ); // send ready message back
-               });
-            } else {
-               conn.send('READY'); // send ready message back
-            }
-
-         } else
-         if (d.substr(0,4)=='JSON') {
-            var obj = JSROOT.parse(d.substr(4));
-            // console.log("get JSON ", d.length-4, obj._typename);
-            var tm1 = new Date().getTime();
-            pthis.RedrawObject(obj);
-            var tm2 = new Date().getTime();
-            sum1+=1;
-            sum2+=(tm2-tm1);
-            if (sum1>10) { console.log('Redraw ', Math.round(sum2/sum1)); sum1=sum2=0; }
-
-            conn.send('READY'); // send ready message back
-            // if (++cnt > 10) conn.close();
-
-         } else
-         if (d.substr(0,4)=='MENU') {
-            var lst = JSROOT.parse(d.substr(4));
-            console.log("get MENUS ", typeof lst, 'nitems', lst.length, d.length-4);
-            conn.send('READY'); // send ready message back
-            if (typeof pthis._getmenu_callback == 'function')
-               pthis._getmenu_callback(lst);
-         } else
-         if (d.substr(0,7)=='GETIMG:') {
-
-            console.log('d',d);
-
-            d = d.substr(7);
-            var p = d.indexOf(":"),
-                id = d.substr(0,p),
-                fname = d.substr(p+1);
-            conn.send('READY'); // send ready message back
-
-            console.log('GET REQUEST FOR SVG FILE', fname, id);
-
-            var painter = pthis.FindSnap(id);
-            if (painter)
-               painter.SaveAsPng(painter.iscan, "image.svg", function(res) {
-                  console.log('SVG IMAGE CREATED', res ? res.length : "<error>");
-                  if (res) conn.send("GETIMG:" + fname + ":" + res);
-               });
-
-         } else {
-            if (d) console.log("unrecognized msg",d);
-         }
+         if (typeof pthis.OnWebsocketMsg == 'function')
+            pthis.OnWebsocketMsg(conn, msg);
       }
 
       conn.onclose = function() {
-         console.log('websocket closed');
          delete pthis._websocket;
-         if (pthis._websocket_opened) {
-        	 pthis._websocket_opened = false;
-        	 window.close(); // close window when socked disapper
+         if (pthis._websocket_state > 0) {
+            console.log('websocket closed');
+            pthis._websocket_state = 0;
+            if (typeof pthis.OnWebsocketClosed == 'function')
+               pthis.OnWebsocketClosed();
          }
       }
 
@@ -2661,7 +2711,7 @@
          var canvp = this.pad_painter();
 
          if (canvp && canvp._websocket && this.snapid)
-            canvp._websocket.send('OBJEXEC:' + this.snapid + ":" + arg);
+            canvp.SendWebsocket('OBJEXEC:' + this.snapid + ":" + arg);
       }
 
       function DoFillMenu(_menu, _call_back, items) {
@@ -2676,10 +2726,10 @@
 
             for (var n=0;n<items.length;++n) {
                var item = items[n];
-               if (item.fChecked < 0)
+               if ((item.fChecked === undefined) || (item.fChecked < 0))
                   _menu.add(item.fName, item.fExec, DoExecMenu);
                else
-                  _menu.addchk(item.fChecked > 0, item.fName, item.fExec, DoExecMenu);
+                  _menu.addchk(item.fChecked, item.fName, item.fExec, DoExecMenu);
             }
 
             _menu.add("endsub:");
@@ -2691,7 +2741,7 @@
 
       canvp._getmenu_callback = DoFillMenu.bind(this, menu, call_back);
 
-      canvp._websocket.send('GETMENU:' + this.snapid); // request menu items for given painter
+      canvp.SendWebsocket('GETMENU:' + this.snapid); // request menu items for given painter
 
       setTimeout(canvp._getmenu_callback, 2000); // set timeout to avoid menu hanging
    }
@@ -3894,7 +3944,7 @@
       hintsg.property('startx', posx);
    }
 
-   JSROOT.Painter.drawFrame = function(divid, obj) {
+   Painter.drawFrame = function(divid, obj) {
       var p = new TFramePainter(obj);
       p.SetDivId(divid, 2);
       p.Redraw();
@@ -3908,8 +3958,11 @@
       this.pad = pad;
       this.iscan = iscan; // indicate if working with canvas
       this.this_pad_name = "";
-      if (!this.iscan && (pad !== null) && ('fName' in pad))
+      if (!this.iscan && (pad !== null) && ('fName' in pad)) {
          this.this_pad_name = pad.fName.replace(" ", "_"); // avoid empty symbol in pad name
+         var regexp = new RegExp("^[A-Za-z][A-Za-z0-9_]*$");
+         if (!regexp.test(this.this_pad_name)) this.this_pad_name = 'jsroot_pad_' + JSROOT.id_counter++;
+      }
       this.painters = []; // complete list of all painters in the pad
       this.has_canvas = true;
    }
@@ -3958,7 +4011,7 @@
    TPadPainter.prototype.ToggleEventStatus = function() {
       // when function called, jquery should be already loaded
 
-      if (this.enlarge_main('state')==='on') return;
+      if ((this.enlarge_main('state')==='on') || this.plain_layout) return;
 
       this.has_event_status = !this.has_event_status;
       if (JSROOT.Painter.ShowStatus) this.has_event_status = false;
@@ -3997,6 +4050,12 @@
       if (resized) this.CheckCanvasResize(); // redraw with resize
    }
 
+
+   TPadPainter.prototype.SetTooltipAllowed = function(on) {
+      var fp = this.frame_painter();
+      fp.tooltip_allowed = !!on;
+   }
+
    TPadPainter.prototype.ShowCanvasMenu = function(name) {
 
       d3.event.stopPropagation(); // disable main context menu
@@ -4006,10 +4065,13 @@
 
       function HandleClick(arg) {
          if (!this._websocket) return;
-         console.log('click', arg);
 
-         if (arg=="Interrupt") { this._websocket.send("GEXE:gROOT->SetInterrupt()"); }
-         if (arg=="Quit ROOT") { this._websocket.send("GEXE:gApplication->Terminate(0)"); }
+         switch (arg) {
+            case "Close canvas": this.OnWebsocketClosed(); this.CloseWebsocket(true); break;
+            case "Interrupt": this.SendWebsocket("INTERRUPT"); break;
+            case "Quit ROOT": this.SendWebsocket("QUIT"); break;
+            default: console.log('click', arg);
+         }
       }
 
       JSROOT.Painter.createMenu(this, function(menu) {
@@ -4099,7 +4161,7 @@
 
       } else {
 
-         if (this._websocket)
+         if (this._websocket && !this.plain_layout)
             this.CreateCanvasMenu();
 
          var render_to = this.select_main();
@@ -4174,6 +4236,8 @@
            .style("right", 0)
            .style("bottom", 0);
       }
+
+      // console.log('CANVAS SVG width = ' + rect.width + " height = " + rect.height);
 
       svg.attr("viewBox", "0 0 " + rect.width + " " + rect.height)
          .attr("preserveAspectRatio", "none")  // we do not preserve relative ratio
@@ -4707,6 +4771,9 @@
          this.pad = first;
          this._fixed_size = true;
 
+         // if canvas size not specified in batch mode, temporary use 900x700 size
+         if (this.batch_mode && (!first.fCw || !first.fCh)) { first.fCw = 900; first.fCh = 700; }
+
          // case of ROOT7 with always dummy TPad as first entry
          if (!first.fCw || !first.fCh) this._fixed_size = false;
 
@@ -4773,6 +4840,100 @@
       // this.DrawNextSnap(snap.fPrimitives, 0, call_back, null); // update all snaps after each other
 
       // show we redraw all other painters without snapid?
+   }
+
+   TPadPainter.prototype.OnWebsocketOpened = function(conn) {
+      // indicate that we are ready to recieve any following commands
+      this.SendWebsocket('READY');
+   }
+
+   TPadPainter.prototype.OnWebsocketMsg = function(conn, msg) {
+
+      if (msg == "CLOSE") {
+         this.OnWebsocketClosed();
+         this.CloseWebsocket(true);
+      } else if (msg.substr(0,5)=='SNAP:') {
+         msg = msg.substr(5);
+         var p1 = msg.indexOf(":"),
+             snapid = msg.substr(0,p1),
+             snap = JSROOT.parse(msg.substr(p1+1));
+
+         if (typeof this.RedrawPadSnap === 'function') {
+            var pthis = this;
+            this.RedrawPadSnap(snap, function() {
+               conn.send("SNAPDONE:" + snapid); // send ready message back when drawing completed
+            });
+         } else {
+            conn.send('READY'); // send ready message back
+         }
+      } else if (msg.substr(0,4)=='SNAP') {
+         // older version, used with ROOT6 implementation, should be removed soon
+
+         var snap = JSROOT.parse(msg.substr(p1+1));
+
+         if (typeof this.RedrawPadSnap === 'function') {
+            var pthis = this;
+            this.RedrawPadSnap(snap, function() {
+               var reply = pthis.GetAllRanges();
+               if (reply) console.log("ranges: " + reply);
+               conn.send(reply ? "RREADY:" + reply : "RREADY:" ); // send ready message back when drawing completed
+            });
+         } else {
+            conn.send('READY'); // send ready message back
+         }
+
+      } else if (msg.substr(0,4)=='JSON') {
+         var obj = JSROOT.parse(msg.substr(4));
+         // console.log("get JSON ", msg.length-4, obj._typename);
+         var tm1 = new Date().getTime();
+         this.RedrawObject(obj);
+         var tm2 = new Date().getTime();
+         sum1+=1;
+         sum2+=(tm2-tm1);
+         if (sum1>10) { console.log('Redraw ', Math.round(sum2/sum1)); sum1=sum2=0; }
+
+         conn.send('READY'); // send ready message back
+         // if (++cnt > 10) conn.close();
+
+      } else if (msg.substr(0,4)=='MENU') {
+         var lst = JSROOT.parse(msg.substr(4));
+         console.log("get MENUS ", typeof lst, 'nitems', lst.length, msg.length-4);
+         conn.send('READY'); // send ready message back
+         if (typeof this._getmenu_callback == 'function')
+            this._getmenu_callback(lst);
+      } else if (msg.substr(0,4)=='CMD:') {
+         msg = msg.substr(4);
+         var p1 = msg.indexOf(":"),
+             cmdid = msg.substr(0,p1),
+             cmd = msg.substr(p1+1),
+             reply = "REPLY:" + cmdid + ":";
+         if (cmd == "SVG") {
+            var res = "";
+            if (this.CreateSvg) res = this.CreateSvg();
+            conn.send(reply + res);
+         } else if (cmd == "PNG") {
+            this.ProduceImage(true, 'any.png', function(can) {
+               var res = can.toDataURL('image/png'),
+                   separ = res.indexOf("base64,");
+               conn.send(reply + ((separ>0) ? res.substr(separ+7) : ""));
+            });
+         } else {
+            console.log('Urecognized command ' + cmd);
+            conn.send(reply);
+         }
+
+      } else {
+         console.log("unrecognized msg " + msg);
+      }
+   }
+
+   TPadPainter.prototype.OnWebsocketClosed = function() {
+      if (window) window.close(); // close window when socket disapper
+   }
+
+   TPadPainter.prototype.WindowBeforeUnloadHanlder = function() {
+      // when window closed, close socket
+      this.CloseWebsocket(true);
    }
 
    TPadPainter.prototype.GetAllRanges = function() {
@@ -4866,12 +5027,34 @@
 
    }
 
-   TPadPainter.prototype.SaveAsPng = function(full_canvas, filename, call_back) {
+   TPadPainter.prototype.CreateSvg = function() {
+      var main = this.svg_canvas(),
+          svg = main.html();
+
+      svg = svg.replace(/url\(\&quot\;\#(\w+)\&quot\;\)/g,"url(#$1)")        // decode all URL
+               .replace(/ class=\"\w*\"/g,"")                                // remove all classes
+               .replace(/<g transform=\"translate\(\d+\,\d+\)\"><\/g>/g,"")  // remove all empty groups with transform
+               .replace(/<g><\/g>/g,"");                                     // remove all empty groups
+
+      svg = '<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"' +
+            ' viewBox="0 0 ' + main.property('draw_width') + ' ' + main.property('draw_height') + '"' +
+            ' width="' + main.property('draw_width') + '"' +
+            ' height="' + main.property('draw_height') + '">' + svg + '</svg>';
+
+       return svg;
+   }
+
+
+   TPadPainter.prototype.SaveAsPng = function(full_canvas, filename) {
       if (!filename) {
          filename = this.this_pad_name;
          if (filename.length === 0) filename = this.iscan ? "canvas" : "pad";
          filename += ".png";
       }
+      this.ProduceImage(full_canvas, filename)
+   }
+
+   TPadPainter.prototype.ProduceImage = function(full_canvas, filename, call_back) {
 
       var elem = full_canvas ? this.svg_canvas() : this.svg_pad(this.this_pad_name);
 
@@ -4897,13 +5080,11 @@
          //rrr.setSize(sz.width, sz.height);
          //rrr.render(main.scene, main.camera);
 
-         var svg = d3.select(svg3d);
-
-         var layer = main.svg_layer("special_layer");
-         group = layer.append("g")
-                      .attr("class","temp_saveaspng")
-                      .attr("transform", "translate(" + sz.x + "," + sz.y + ")");
-         group.node().appendChild(svg3d);
+          main.svg_layer("special_layer")      // select layer
+              .append("g")                     // create special group
+              .attr("class","temp_saveaspng")
+              .attr("transform", "translate(" + sz.x + "," + sz.y + ")")
+              .node().appendChild(svg3d);      // add code
       }, true);
 
 //      if (((can3d === 1) || (can3d === 2)) && main && main.Render3D) {
@@ -4924,9 +5105,9 @@
 
 
       var options = { name: filename, removeClass: "btns_layer" };
-      if (call_back) options.result = "svg";
+      if (call_back) options.result = "canvas";
 
-      JSROOT.saveSvgAsPng(elem.node(), options , function(res) {
+      JSROOT.saveSvgAsPng(elem.node(), options, function(res) {
 
          if (res===null) console.warn('problem when produce image');
 
@@ -5044,17 +5225,16 @@
       switch(action) {
          case 'enable': is_visible = true; break;
          case 'enterbtn': return; // do nothing, just cleanup timeout
-         case 'timeout': isvisible = false; break;
-         case 'toggle': {
-            state = !state; btn.property('buttons_state', state);
+         case 'timeout': is_visible = false; break;
+         case 'toggle':
+            state = !state;
+            btn.property('buttons_state', state);
             is_visible = state;
             break;
-         }
          case 'disable':
-         case 'leavebtn': {
-            if (state) return;
-            return btn.property('timout_handler', setTimeout(this.toggleButtonsVisibility.bind(this,'timeout'),500));
-         }
+         case 'leavebtn':
+            if (!state) btn.property('timout_handler', setTimeout(this.toggleButtonsVisibility.bind(this,'timeout'), 500));
+            return;
       }
 
       group.selectAll('svg').each(function() {
@@ -5135,7 +5315,7 @@
       if (d.check('TICK')) pad.fTickx = pad.fTicky = 1;
    }
 
-   JSROOT.Painter.drawCanvas = function(divid, can, opt) {
+   Painter.drawCanvas = function(divid, can, opt) {
       var nocanvas = (can===null);
       if (nocanvas) can = JSROOT.Create("TCanvas");
 
@@ -5161,7 +5341,7 @@
       return painter;
    }
 
-   JSROOT.Painter.drawPad = function(divid, pad, opt) {
+   Painter.drawPad = function(divid, pad, opt) {
       var painter = new TPadPainter(pad, false);
       painter.DecodeOptions(opt);
 
@@ -5202,7 +5382,7 @@
    // ================= painter of raw text ========================================
 
 
-   JSROOT.Painter.drawRawText = function(divid, txt, opt) {
+   Painter.drawRawText = function(divid, txt, opt) {
 
       var painter = new TBasePainter();
       painter.txt = txt;
@@ -5311,6 +5491,7 @@
    JSROOT.addDrawFunc({ name: "TGraph2D", icon:"img_graph", prereq: "hist3d", func: "JSROOT.Painter.drawGraph2D", opt:";P;PCOL"});
    JSROOT.addDrawFunc({ name: "TGraph2DErrors", icon:"img_graph", prereq: "hist3d", func: "JSROOT.Painter.drawGraph2D", opt:";P;PCOL;ERR"});
    JSROOT.addDrawFunc({ name: /^TGraph/, icon:"img_graph", prereq: "more2d", func: "JSROOT.Painter.drawGraph", opt:";L;P"});
+   JSROOT.addDrawFunc({ name: "TEfficiency", icon:"img_graph", prereq: "more2d", func: "JSROOT.Painter.drawEfficiency", opt:";AP"});
    JSROOT.addDrawFunc({ name: "TCutG", sameas: "TGraph" });
    JSROOT.addDrawFunc({ name: /^RooHist/, sameas: "TGraph" });
    JSROOT.addDrawFunc({ name: /^RooCurve/, sameas: "TGraph" });
@@ -5781,8 +5962,11 @@
       }
    }
 
-   JSROOT.Painter.createRootColors();
+   Painter.createRootColors();
 
+   JSROOT.LongPollSocket = LongPollSocket;
+   JSROOT.Cef3QuerySocket = Cef3QuerySocket;
+   JSROOT.DrawOptions = DrawOptions;
    JSROOT.TBasePainter = TBasePainter;
    JSROOT.TObjectPainter = TObjectPainter;
    JSROOT.TFramePainter = TFramePainter;

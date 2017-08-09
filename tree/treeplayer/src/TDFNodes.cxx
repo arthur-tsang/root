@@ -17,12 +17,13 @@
 #endif
 #include "RtypesCore.h" // Long64_t
 #include "TInterpreter.h"
-#include "TROOT.h"      // IsImplicitMTEnabled
+#include "TROOT.h" // IsImplicitMTEnabled
 #include "TTreeReader.h"
+#include <climits>
 
 #include <cassert>
 #include <mutex>
-#include <numeric> // std::accumulate
+#include <numeric> // std::accumulate (PrintReport), std::iota (TSlotStack)
 #include <string>
 class TDirectory;
 class TTree;
@@ -33,7 +34,7 @@ namespace ROOT {
 namespace Internal {
 namespace TDF {
 
-TActionBase::TActionBase(TLoopManager *implPtr, const ColumnNames_t &tmpBranches, unsigned int nSlots)
+TActionBase::TActionBase(TLoopManager *implPtr, const ColumnNames_t &tmpBranches, const unsigned int nSlots)
    : fImplPtr(implPtr), fTmpBranches(tmpBranches), fNSlots(nSlots)
 {
 }
@@ -43,7 +44,7 @@ TActionBase::TActionBase(TLoopManager *implPtr, const ColumnNames_t &tmpBranches
 } // end NS ROOT
 
 TCustomColumnBase::TCustomColumnBase(TLoopManager *implPtr, const ColumnNames_t &tmpBranches, std::string_view name,
-                                     unsigned int nSlots)
+                                     const unsigned int nSlots)
    : fImplPtr(implPtr), fTmpBranches(tmpBranches), fName(name), fNSlots(nSlots){};
 
 ColumnNames_t TCustomColumnBase::GetTmpBranches() const
@@ -62,7 +63,7 @@ TLoopManager *TCustomColumnBase::GetImplPtr() const
 }
 
 TFilterBase::TFilterBase(TLoopManager *implPtr, const ColumnNames_t &tmpBranches, std::string_view name,
-                         unsigned int nSlots)
+                         const unsigned int nSlots)
    : fImplPtr(implPtr), fTmpBranches(tmpBranches), fLastCheckedEntry(nSlots, -1), fLastResult(nSlots),
      fAccepted(nSlots), fRejected(nSlots), fName(name), fNSlots(nSlots)
 {
@@ -90,7 +91,8 @@ void TFilterBase::PrintReport() const
    const auto accepted = std::accumulate(fAccepted.begin(), fAccepted.end(), 0ULL);
    const auto all = accepted + std::accumulate(fRejected.begin(), fRejected.end(), 0ULL);
    double perc = accepted;
-   if (all > 0) perc /= all;
+   if (all > 0)
+      perc /= all;
    perc *= 100.;
    Printf("%-10s: pass=%-10lld all=%-10lld -- %8.3f %%", fName.c_str(), accepted, all, perc);
 }
@@ -101,6 +103,16 @@ void TFilterBase::PrintReport() const
 // fixed at construction time and no blocking is foreseen.
 class TSlotStack {
 private:
+   unsigned int &GetCount()
+   {
+      TTHREAD_TLS(unsigned int) count = 0U;
+      return count;
+   }
+   unsigned int &GetIndex()
+   {
+      TTHREAD_TLS(unsigned int) index = UINT_MAX;
+      return index;
+   }
    unsigned int fCursor;
    std::vector<unsigned int> fBuf;
    ROOT::TSpinMutex fMutex;
@@ -108,25 +120,38 @@ private:
 public:
    TSlotStack() = delete;
    TSlotStack(unsigned int size) : fCursor(size), fBuf(size) { std::iota(fBuf.begin(), fBuf.end(), 0U); }
-   void Push(unsigned int slotNumber);
-   unsigned int Pop();
+   void ReturnSlot(unsigned int slotNumber);
+   unsigned int GetSlot();
 };
 
-void TSlotStack::Push(unsigned int slotNumber)
+void TSlotStack::ReturnSlot(unsigned int slotNumber)
 {
-   std::lock_guard<ROOT::TSpinMutex> guard(fMutex);
-   fBuf[fCursor++] = slotNumber;
-   assert(fCursor <= fBuf.size() && "TSlotStack assumes that at most a fixed number of values can be present in the "
-                                    "stack. fCursor is greater than the size of the internal buffer. This violates "
-                                    "such assumption.");
+   auto &index = GetIndex();
+   auto &count = GetCount();
+   assert(count > 0U && "TSlotStack has a reference count relative to an index which will become negative.");
+   count--;
+   if (0U == count) {
+      index = UINT_MAX;
+      std::lock_guard<ROOT::TSpinMutex> guard(fMutex);
+      fBuf[fCursor++] = slotNumber;
+      assert(fCursor <= fBuf.size() && "TSlotStack assumes that at most a fixed number of values can be present in the "
+                                       "stack. fCursor is greater than the size of the internal buffer. This violates "
+                                       "such assumption.");
+   }
 }
 
-unsigned int TSlotStack::Pop()
+unsigned int TSlotStack::GetSlot()
 {
-   assert(fCursor > 0 &&
-          "TSlotStack assumes that a value can be always popped. fCursor is <=0 and this violates such assumption.");
+   auto &index = GetIndex();
+   auto &count = GetCount();
+   count++;
+   if (UINT_MAX != index)
+      return index;
    std::lock_guard<ROOT::TSpinMutex> guard(fMutex);
-   return fBuf[--fCursor];
+   assert(fCursor > 0 && "TSlotStack assumes that a value can be always obtained. In this case fCursor is <=0 and this "
+                         "violates such assumption.");
+   index = fBuf[--fCursor];
+   return index;
 }
 
 TLoopManager::TLoopManager(TTree *tree, const ColumnNames_t &defaultBranches)
@@ -163,12 +188,13 @@ void TLoopManager::RunEmptySourceMT()
 
    // Each task will generate a subrange of entries
    auto genFunction = [this, &slotStack](const std::pair<ULong64_t, ULong64_t> &range) {
-      auto slot = slotStack.Pop();
+      auto slot = slotStack.GetSlot();
       InitNodeSlots(nullptr, slot);
       for (auto currEntry = range.first; currEntry < range.second; ++currEntry) {
          RunAndCheckFilters(slot, currEntry);
       }
-      slotStack.Push(slot);
+      CleanUpTask(slot);
+      slotStack.ReturnSlot(slot);
    };
 
    ROOT::TThreadExecutor pool;
@@ -196,15 +222,16 @@ void TLoopManager::RunTreeProcessorMT()
    tp.reset(new ttpmt_t(*fTree));
 
    tp->Process([this, &slotStack](TTreeReader &r) -> void {
-      auto slot = slotStack.Pop();
+      auto slot = slotStack.GetSlot();
       InitNodeSlots(&r, slot);
       // recursive call to check filters and conditionally execute actions
       while (r.Next()) {
          RunAndCheckFilters(slot, r.GetCurrentEntry());
       }
-      slotStack.Push(slot);
+      CleanUpTask(slot);
+      slotStack.ReturnSlot(slot);
    });
-#endif // not implemented otherwise
+#endif // no-op otherwise (will not be called)
 }
 
 /// Run event loop over one or multiple ROOT files, in sequence.
@@ -253,7 +280,7 @@ void TLoopManager::InitNodes()
 }
 
 /// Perform clean-up operations. To be called at the end of each event loop.
-void TLoopManager::CleanUp()
+void TLoopManager::CleanUpNodes()
 {
    fHasRunAtLeastOnce = true;
 
@@ -270,6 +297,15 @@ void TLoopManager::CleanUp()
    for (auto &ptr : fBookedFilters) ptr->ResetChildrenCount();
    for (auto &ptr : fBookedRanges) ptr->ResetChildrenCount();
    for (auto &pair : fBookedBranches) pair.second->ResetChildrenCount();
+}
+
+/// Perform clean-up operations. To be called at the end of each task execution.
+// TODO in case of interleaved task execution, each task must clear the readervalues in its task slot
+void TLoopManager::CleanUpTask(unsigned int slot)
+{
+   for (auto &ptr : fBookedActions) ptr->ClearValueReaders(slot);
+   for (auto &ptr : fBookedFilters) ptr->ClearValueReaders(slot);
+   for (auto &pair : fBookedBranches) pair.second->ClearValueReaders(slot);
 }
 
 /// Jit all actions that required runtime column type inference, and clean the `fToJit` member variable.
@@ -301,7 +337,8 @@ void TLoopManager::EvalChildrenCounts()
 /// Also perform a few setup and clean-up operations (jit actions if necessary, clear booked actions after the loop...).
 void TLoopManager::Run()
 {
-   if (!fToJit.empty()) JitActions();
+   if (!fToJit.empty())
+      JitActions();
 
    InitNodes();
 
@@ -321,7 +358,7 @@ void TLoopManager::Run()
    }
 #endif // R__USE_IMT
 
-   CleanUp();
+   CleanUpNodes();
 }
 
 TLoopManager *TLoopManager::GetImplPtr()
@@ -392,7 +429,7 @@ void TLoopManager::Report() const
 }
 
 TRangeBase::TRangeBase(TLoopManager *implPtr, const ColumnNames_t &tmpBranches, unsigned int start, unsigned int stop,
-                       unsigned int stride, unsigned int nSlots)
+                       unsigned int stride, const unsigned int nSlots)
    : fImplPtr(implPtr), fTmpBranches(tmpBranches), fStart(start), fStop(stop), fStride(stride), fNSlots(nSlots)
 {
 }

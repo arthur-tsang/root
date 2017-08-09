@@ -94,6 +94,7 @@ large TClonesArray where each element contains another small vector container.
     Z axis, there was a mismatch between the markers' colors and the color palette
     displayed. It is now fixed. It was reported
     [here](https://sft.its.cern.ch/jira/browse/ROOT-8200).
+  - It is now possible to set the titles and the axis ranges of a TMultiGraph drawn as 3D lines.
 
 ## 3D Graphics Libraries
 
@@ -124,9 +125,14 @@ large TClonesArray where each element contains another small vector container.
 
 ## Tutorials
 
+## Command line tools
+  - `rootls` has been extended.
+    - option `-l` displays the year
+    - option `-t` displays all details of 'THnSparse'
+
 
 ## Class Reference Guide
-
+  - The list of libraries needed by each class is displayed as a diagram.
 
 ## Build, Configuration and Testing Infrastructure
 

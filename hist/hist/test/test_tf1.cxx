@@ -95,3 +95,4 @@ TEST(TF1, Normalization) {
 TEST(TF1, ConvVoigt) {
    test_convVoigt();
 }
+

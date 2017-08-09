@@ -191,6 +191,14 @@ def isTreeKey(key):
     cl = ROOT.gROOT.GetClass(classname)
     return cl.InheritsFrom(ROOT.TTree.Class())
 
+def isTHnSparseKey(key):
+    """
+    Return True if the object, corresponding to the key, inherits from THnSparse
+    """
+    classname = key.GetClassName()
+    cl = ROOT.gROOT.GetClass(classname)
+    return cl.InheritsFrom(ROOT.THnSparse.Class())
+
 def getKey(rootFile,pathSplit):
     """
     Get the key of the corresponding object (rootFile,pathSplit)
@@ -932,17 +940,21 @@ def _rootLsPrintLongLs(keyList,indent,treeListing):
         datime = key.GetDatime()
         time = datime.GetTime()
         date = datime.GetDate()
+        year = datime.GetYear()
         time = _prepareTime(time)
         rec = \
             [key.GetClassName(), \
             MONTH[int(str(date)[4:6])]+" " +str(date)[6:]+ \
-            " "+time[:2]+":"+time[2:4], \
+            " "+time[:2]+":"+time[2:4]+" "+str(year)+" ", \
             key.GetName(), \
             "\""+key.GetTitle()+"\""]
         write(LONG_TEMPLATE.format(*rec,**dic),indent,end="\n")
         if treeListing and isTreeKey(key):
             tree = key.ReadObj()
             _recursifTreePrinter(tree,indent+2)
+        if treeListing and isTHnSparseKey(key):
+            hs = key.ReadObj()
+            hs.Print('all')
 
 ##
 # The code of the getTerminalSize function can be found here :

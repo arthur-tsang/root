@@ -935,7 +935,7 @@ Bool_t TH1::Add(const TH1 *h1, Double_t c1)
          Double_t w1 = 1., w2 = 1.;
 
          // consider all special cases  when bin errors are zero
-         // see http://root.cern.ch/phpBB3//viewtopic.php?f=3&t=13299
+         // see http://root-forum.cern.ch/viewtopic.php?f=3&t=13299
          if (e1sq) w1 = 1. / e1sq;
          else if (h1->fSumw2.fN) {
             w1 = 1.E200; // use an arbitrary huge value
@@ -1137,7 +1137,7 @@ Bool_t TH1::Add(const TH1 *h1, const TH1 *h2, Double_t c1, Double_t c2)
          Double_t w1 = 1., w2 = 1.;
 
          // consider all special cases  when bin errors are zero
-         // see http://root.cern.ch/phpBB3//viewtopic.php?f=3&t=13299
+         // see http://root-forum.cern.ch/viewtopic.php?f=3&t=13299
          if (e1sq) w1 = 1./ e1sq;
          else if (h1->fSumw2.fN) {
             w1 = 1.E200; // use an arbitrary huge value
@@ -2796,7 +2796,7 @@ Bool_t TH1::Divide(const TH1 *h1, const TH1 *h2, Double_t c1, Double_t c2, Optio
                // c1 and c2 are ignored
                //fSumw2.fArray[bin] = TMath::Abs(w*(1-w)/(c2*b2));//this is the formula in Hbook/Hoper1
                //fSumw2.fArray[bin] = TMath::Abs(w*(1-w)/b2);     // old formula from G. Flucke
-               // formula which works also for weighted histogram (see http://root.cern.ch/phpBB2/viewtopic.php?t=3753 )
+               // formula which works also for weighted histogram (see http://root-forum.cern.ch/viewtopic.php?t=3753 )
                fSumw2.fArray[i] = TMath::Abs( ( (1. - 2.* b1 / b2) * e1sq  + b1sq * e2sq / b2sq ) / b2sq );
             } else {
                //in case b1=b2 error is zero
@@ -8323,6 +8323,12 @@ void TH1::GetLowEdge(Double_t *edge) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+/// Set the bin Error
+/// Note that this resets the bin eror option to be of Normal Type and for the 
+/// non-empty bin the bin error is set by default to the square root of their content,
+/// but in case the user sets explicitly a new bin content (using SetBinContent) he needs to provide also
+/// the error, otherwise a default error = 0 is used.
+/// 
 /// See convention for numbering bins in TH1::GetBin
 
 void TH1::SetBinError(Int_t bin, Double_t error)
@@ -8330,6 +8336,8 @@ void TH1::SetBinError(Int_t bin, Double_t error)
    if (!fSumw2.fN) Sumw2();
    if (bin < 0 || bin>= fSumw2.fN) return;
    fSumw2.fArray[bin] = error * error;
+   // reset the bin error option
+   SetBinErrorOption(kNormal);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

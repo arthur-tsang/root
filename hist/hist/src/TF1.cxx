@@ -432,8 +432,8 @@ TF1::TF1(const char *name, const char *formula, Double_t xmin, Double_t xmax, EA
       fXmin = xmax; //when called from TF2,TF3
       fXmax = xmin;
    }
+
    // Create rep formula (no need to add to gROOT list since we will add the TF1 object)
-   
    
    // First check if we are making a convolution
    if (TString(formula, 5) == "CONV(" && formula[strlen(formula)-1] == ')') {
@@ -541,6 +541,8 @@ TF1::TF1(const char *name, const char *formula, Double_t xmin, Double_t xmax, EA
       DefineNSUMTerm(newFuncs, coeffNames, fullFormula, formDense, termStart, formDense.Length(), xmin, xmax);
 
       TF1NormSum *normSum = new TF1NormSum(fullFormula, xmin, xmax);
+
+      if (xmin == 0 && xmax == 1.) Info("TF1","Created TF1NormSum object using the default [0,1] range");
       
       fNpar = normSum->GetNpar();
       fNdim = 1; // (note: may want to extend functionality in the future)
@@ -1304,11 +1306,11 @@ void TF1::DrawF1(Double_t xmin, Double_t xmax, Option_t *option)
 
 Double_t TF1::Eval(Double_t x, Double_t y, Double_t z, Double_t t) const
 {
-   if (fType == 0) return fFormula->Eval(x, y, z, t);
+   if (fType == EFType::kFormula) return fFormula->Eval(x, y, z, t);
 
    Double_t xx[4] = {x, y, z, t};
    Double_t *pp = (Double_t *)fParams->GetParameters();
-   if (fType == 2)((TF1 *)this)->InitArgs(xx, pp);
+   if (fType == EFType::kInterpreted)((TF1 *)this)->InitArgs(xx, pp);
    return ((TF1 *)this)->EvalPar(xx, pp);
 }
 
@@ -1335,7 +1337,7 @@ Double_t TF1::EvalPar(const Double_t *x, const Double_t *params)
 {
    //fgCurrent = this;
 
-   if (fType == 0) {
+   if (fType == EFType::kFormula) {
       assert(fFormula);
 
       if (fNormalized && fNormIntegral != 0)
@@ -1344,7 +1346,7 @@ Double_t TF1::EvalPar(const Double_t *x, const Double_t *params)
          return fFormula->EvalPar(x, params);
    }
    Double_t result = 0;
-   if (fType == 1)  {
+   if (fType == EFType::kPtrScalarFreeFcn || fType == EFType::kTemplScalar)  {
       if (fFunctor) {
          assert(fParams);
          if (params) result = ((TF1FunctorPointerImpl<Double_t> *)fFunctor)->fImpl((Double_t *)x, (Double_t *)params);
@@ -1357,7 +1359,7 @@ Double_t TF1::EvalPar(const Double_t *x, const Double_t *params)
 
       return result;
    }
-   if (fType == 2) {
+   if (fType == EFType::kInterpreted) {
       if (fMethodCall) fMethodCall->Execute(result);
       else             result = GetSave(x);
 
@@ -1367,7 +1369,8 @@ Double_t TF1::EvalPar(const Double_t *x, const Double_t *params)
       return result;
    }
 
-   if (fType == 3) {
+#ifdef R__HAS_VECCORE
+   if (fType == EFType::kTemplVec) {
       if (fFunctor) {
          if (params) result =  EvalParVec(x, params);
          else result =  EvalParVec(x, (Double_t *) fParams->GetParameters());
@@ -1381,6 +1384,7 @@ Double_t TF1::EvalPar(const Double_t *x, const Double_t *params)
 
       return result; 
    }
+#endif
    return result;
 }
 
@@ -1746,9 +1750,10 @@ Int_t TF1::GetNDF() const
 
 Int_t TF1::GetNumberFreeParameters() const
 {
-   Int_t nfree = GetNpar();
+   Int_t ntot = GetNpar();
+   Int_t nfree = ntot; 
    Double_t al, bl;
-   for (Int_t i = 0; i < nfree; i++) {
+   for (Int_t i = 0; i < ntot; i++) {
       ((TF1 *)this)->GetParLimits(i, al, bl);
       if (al * bl != 0 && al >= bl) nfree--;
    }
@@ -2788,12 +2793,12 @@ Bool_t TF1::IsValid() const
 
 void TF1::Print(Option_t *option) const
 {
-   if (fType == 0) {
+   if (fType == EFType::kFormula) {
       printf("Formula based function:     %s \n", GetName());
       assert(fFormula);
       fFormula->Print(option);
    } else if (fType >  0) {
-      if (fType == 2)
+      if (fType == EFType::kFormula)
          printf("Interpreted based function: %s(double *x, double *p).  Ndim = %d, Npar = %d  \n", GetName(), GetNpar(), GetNdim());
       else {
          if (fFunctor)

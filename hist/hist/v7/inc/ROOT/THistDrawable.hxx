@@ -54,7 +54,8 @@ protected:
 public:
    static THistPainterBase<DIMENSION> *GetPainter()
    {
-      if (!fgPainter) LoadHistPainterLibrary();
+      if (!fgPainter)
+         LoadHistPainterLibrary();
       return fgPainter;
    }
 
@@ -66,7 +67,9 @@ extern template class THistPainterBase<1>;
 extern template class THistPainterBase<2>;
 extern template class THistPainterBase<3>;
 
-class THistDrawableBase : public TDrawable {
+} // namespace Internal
+
+class THistDrawableBase: public TDrawable {
 protected:
    std::unique_ptr<TH1> fOldHist;
 
@@ -93,7 +96,7 @@ public:
    using HistImpl_t = Detail::THistImplPrecisionAgnosticBase<DIMENSIONS>;
 
 private:
-   TUniWeakPtr<HistImpl_t> fHistImpl;
+   Internal::TUniWeakPtr<HistImpl_t> fHistImpl;
    THistDrawOptions<DIMENSIONS> fOpts;
 
    bool UpdateOldHist();
@@ -102,19 +105,18 @@ public:
    template <class HIST>
    THistDrawable(const std::shared_ptr<HIST> &hist, THistDrawOptions<DIMENSIONS> opts)
       : fHistImpl(std::shared_ptr<HistImpl_t>(hist, hist->GetImpl())), fOpts(opts)
-   {
-   }
+   {}
 
    template <class HIST>
    THistDrawable(std::unique_ptr<HIST> &&hist, THistDrawOptions<DIMENSIONS> opts)
       : fHistImpl(std::unique_ptr<HistImpl_t>(std::move(hist->TakeImpl()))), fOpts(opts)
-   {
-   }
+   {}
 
    /// Paint the histogram
-   void Paint(TVirtualCanvasPainter &canv) final
+   void Paint(Internal::TVirtualCanvasPainter &canv) final
    {
-      if (UpdateOldHist()) THistPainterBase<DIMENSIONS>::GetPainter()->Paint(*this, fOpts, canv);
+      if (UpdateOldHist())
+         Internal::THistPainterBase<DIMENSIONS>::GetPainter()->Paint(*this, fOpts, canv);
    }
 };
 
@@ -122,7 +124,6 @@ extern template class THistDrawable<1>;
 extern template class THistDrawable<2>;
 extern template class THistDrawable<3>;
 
-} // namespace Internal
 } // namespace Experimental
 } // namespace ROOT
 

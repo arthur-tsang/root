@@ -98,6 +98,7 @@ public:
       }
       fitter.Config().MinimizerOptions().SetPrintLevel(3);
       fitter.Config().SetMinimizer("Minuit2", "Migrad");
+      fitter.Config().MinimizerOptions().SetTolerance(10);
    }
 
 
@@ -112,6 +113,8 @@ public:
       fitter.Config().ParSettings(3).SetLowerLimit(0);
       fitter.Config().ParSettings(4).SetLowerLimit(0);
       fitter.Config().ParSettings(5).SetLowerLimit(0);
+      // save the parameter settings for the other fits
+      paramSettings = fitter.Config().ParamsSettings();  
       start = std::chrono::system_clock::now();
       bool ret = fitter.Fit(*dataSB);
       end =  std::chrono::system_clock::now();
@@ -123,15 +126,11 @@ public:
    double testMTFit()
    {
       std::cout << "\n///////////////////////////////MT TEST////////////////////////////" << std::endl << std::endl;
-      fitter.SetFunction(*wfSeq, false);
       fSeq->SetParameters(p);
-      fitter.Config().ParSettings(0).SetLimits(0, 1);
-      fitter.Config().ParSettings(1).Fix();
-      fitter.Config().ParSettings(3).SetLowerLimit(0);
-      fitter.Config().ParSettings(4).SetLowerLimit(0);
-      fitter.Config().ParSettings(5).SetLowerLimit(0);
+      fitter.SetFunction(*wfSeq, false);
+      fitter.Config().ParamsSettings() = paramSettings; 
       start = std::chrono::system_clock::now();
-      bool ret = fitter.Fit(*dataSB, 0, ROOT::Fit::kMultithread);
+      bool ret = fitter.Fit(*dataSB, 0, ROOT::Fit::ExecutionPolicy::kMultithread);
       end =  std::chrono::system_clock::now();
       duration = end - start;
       std::cout << "Time for the parallel test: " << duration.count() << std::endl;
@@ -143,8 +142,9 @@ public:
       std::cout << "\n///////////////////////////////MP TEST////////////////////////////\n\n";
       fSeq->SetParameters(p);
       fitter.SetFunction(*wfSeq, false);
+      fitter.Config().ParamsSettings() = paramSettings; 
       start = std::chrono::system_clock::now();
-      bool ret = fitter.Fit(*dataSB, 0, ROOT::Fit::kMultiprocess);
+      bool ret = fitter.Fit(*dataSB, 0, ROOT::Fit::ExecutionPolicy::kMultiprocess);
       end =  std::chrono::system_clock::now();
       duration = end - start;
       std::cout << "Time for the multiprocess test:" << duration.count() << std::endl;
@@ -157,11 +157,7 @@ public:
       std::cout << "\n////////////////////////////VECTOR TEST////////////////////////////" << std::endl << std::endl;
       fVec->SetParameters(p);
       fitter.SetFunction(*wfVec);
-      fitter.Config().ParSettings(0).SetLimits(0, 1);
-      fitter.Config().ParSettings(1).Fix();
-      fitter.Config().ParSettings(3).SetLowerLimit(0);
-      fitter.Config().ParSettings(4).SetLowerLimit(0);
-      fitter.Config().ParSettings(5).SetLowerLimit(0);
+      fitter.Config().ParamsSettings() = paramSettings; 
       start = std::chrono::system_clock::now();
       bool ret = fitter.Fit(*dataSB);
       end =  std::chrono::system_clock::now();
@@ -175,8 +171,9 @@ public:
       std::cout << "\n///////////////////////////////MT+VEC TEST////////////////////////////\n\n";
       fVec->SetParameters(p);
       fitter.SetFunction(*wfVec);
+      fitter.Config().ParamsSettings() = paramSettings; 
       start = std::chrono::system_clock::now();
-      bool ret = fitter.Fit(*dataSB, 0, ROOT::Fit::kMultithread);
+      bool ret = fitter.Fit(*dataSB, 0, ROOT::Fit::ExecutionPolicy::kMultithread);
       end =  std::chrono::system_clock::now();
       duration = end - start;
       std::cout << "Time for the parallel+vectorized test: " << duration.count() << std::endl;
@@ -188,8 +185,9 @@ public:
       std::cout << "\n///////////////////////////////MP+VEC TEST////////////////////////////\n\n";
       fVec->SetParameters(p);
       fitter.SetFunction(*wfVec);
+      fitter.Config().ParamsSettings() = paramSettings; 
       start = std::chrono::system_clock::now();
-      bool ret = fitter.Fit(*dataSB, 0, ROOT::Fit::kMultiprocess);
+      bool ret = fitter.Fit(*dataSB, 0, ROOT::Fit::ExecutionPolicy::kMultiprocess);
       end =  std::chrono::system_clock::now();
       duration = end - start;
       std::cout << "Time for the multiprocess+vectorized test:" << duration.count() << std::endl;
@@ -212,6 +210,7 @@ private:
    std::chrono::duration<double> duration;
    ROOT::Fit::Fitter fitter;
    ROOT::Fit::UnBinData *dataSB;
+   std::vector<ROOT::Fit::ParameterSettings> paramSettings; 
    bool filledData = false;
    double p[paramSize] = {0.1, 1000., 130., 2., 3.5, 1.5};
 };
@@ -219,8 +218,6 @@ private:
 
 int main()
 {
-
-   bool correctness;
    TestVector test(200000);
 
    //Sequential
@@ -228,7 +225,11 @@ int main()
       Error("testLogLExecPolicy", "Fit failed!");
       return -1;
    }
+
+// #if defined(R__USE_IMT) || defined(R__HAS_VECCORE)
+//#ifdef R__HAS_VECCORE
    auto seq = test.GetFitter().Result().MinFcnValue();
+//#endif
 
 #ifdef R__USE_IMT
    //Multithreaded
@@ -237,9 +238,8 @@ int main()
       return -1;
    }
    auto seqMT = test.GetFitter().Result().MinFcnValue();
-   correctness = compareResult(seqMT, seq, "Mutithreaded LogL Fit: ");
-   if(!correctness)
-         return 1;
+   if (!compareResult(seqMT, seq, "Mutithreaded LogL Fit: "))
+      return 1;
 #endif
 
 #ifdef R__HAS_VECCORE
@@ -249,27 +249,19 @@ int main()
       return -1;
    }
    auto vec = test.GetFitter().Result().MinFcnValue();
-   correctness = compareResult(vec, seq, "vectorized LogL Fit: ");
-   if(!correctness)
-         return 2;
+   if (!compareResult(vec, seq, "vectorized LogL Fit: "))
+      return 2;
+#endif
 
-#ifdef R__USE_IMT
+#if defined(R__USE_IMT) && defined(R__HAS_VECCORE)
    //Multithreaded and vectorized
    if (!test.testMTFitVec()) {
       Error("testLogLExecPolicy", "Multithreaded + vectorized Fit failed!");
       return -1;
    }
    auto vecMT = test.GetFitter().Result().MinFcnValue();
-   correctness = compareResult(vecMT, seq, "Mutithreaded + vectorized LogL Fit: ");
-   if(!correctness)
-         return 3;
+   if (!compareResult(vecMT, seq, "Mutithreaded + vectorized LogL Fit: "))
+      return 3;
 #endif
-#endif
-
-//    //Multiprocessed
-//    auto seqMP = test.testMPFit();
-//    //Multiprocess + vectorized
-//    auto vecMP = test.testMPFitVec();
-
    return 0;
 }

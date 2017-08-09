@@ -9,8 +9,8 @@
  *************************************************************************/
 
 /**
-  \defgroup dataframe Data Frame
-The ROOT Data Frame allows to analyse data stored in TTrees with a high level interface.
+  \defgroup dataframe DataFrame
+ROOT's TDataFrame allows to analyse data stored in TTrees with a high level interface.
 */
 
 #ifndef ROOT_TDATAFRAME
@@ -67,7 +67,7 @@ TDataFrame::TDataFrame(std::string_view treeName, const FILENAMESCOLL &filenames
    std::string treeNameInt(treeName);
    auto chain = std::make_shared<TChain>(treeNameInt.c_str());
    for (auto &fileName : filenamescoll) chain->Add(TDFInternal::ToConstCharPtr(fileName));
-   fProxiedPtr->SetTree(std::static_pointer_cast<TTree>(chain));
+   fProxiedPtr->SetTree(chain);
 }
 
 } // end NS Experimental

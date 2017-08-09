@@ -35,7 +35,7 @@ acquisition, simulation and data analysis systems.
 | master | [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-incremental-master)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-incremental-master/) | [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-nightly-master)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-nightly-master/) |
 | master-noimt | [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-incremental-master-noimt)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-incremental-master-noimt/) | [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-nightly-master-noimt)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-nightly-master-noimt/) |
 | v5-34-00-patches | [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-incremental-v5-34-00-patches)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-incremental-v5-34-00-patches/) | [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-nightly-v5-34-00-patches)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-nightly-v5-34-00-patches/) |
-| v6-08-00-patches |  [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-incremental-v6-08-00-patches)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-incremental-v6-08-00-patches/) | [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-nightly-v6-08-00-patches)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-nightly-v6-08-00-patches/) |
+| v6-10-00-patches |  [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-incremental-v6-10-00-patches)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-incremental-v6-10-00-patches/) | [![Build Status](https://epsft-jenkins.cern.ch/buildStatus/icon?job=root-nightly-v6-10-00-patches)](https://epsft-jenkins.cern.ch/view/ROOT/job/root-nightly-v6-10-00-patches/) |
 
 ## Live Demo
 [![](https://swanserver.web.cern.ch/swanserver/images/badge_swan_white_150.png)](http://cern.ch/swanserver/cgi-bin/go?projurl=https://github.com/cernphsft/rootbinder.git)
@@ -85,6 +85,7 @@ Setup and run ROOT
 - [Tutorials](https://root.cern/doc/master/group__Tutorials.html)
 
 ## Contribution Guidelines
+- [How to contribute](https://github.com/root-project/root/blob/master/CONTRIBUTING.md)
 - [Bug reporting guidelines](https://root.cern/guidelines-submitting-bug)
 - [Coding conventions](https://root.cern/coding-conventions)
 - [Meetings](https://root.cern/meetings)

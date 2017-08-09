@@ -41,13 +41,13 @@ THistPainterBase<DIMENSION>::~THistPainterBase()
 template <int DIMENSION>
 THistPainterBase<DIMENSION> *THistPainterBase<DIMENSION>::fgPainter = nullptr;
 
-Internal::THistDrawableBase::THistDrawableBase() = default;
-Internal::THistDrawableBase::THistDrawableBase(THistDrawableBase &&) = default;
-Internal::THistDrawableBase::~THistDrawableBase() = default;
+THistDrawableBase::THistDrawableBase() = default;
+THistDrawableBase::THistDrawableBase(THistDrawableBase &&) = default;
+THistDrawableBase::~THistDrawableBase() = default;
 
-Internal::THistDrawableBase &Internal::THistDrawableBase::operator=(THistDrawableBase &&) = default;
+THistDrawableBase &THistDrawableBase::operator=(THistDrawableBase &&) = default;
 
-void Internal::THistDrawableBase::PopulateMenu(TMenuItems &)
+void THistDrawableBase::PopulateMenu(TMenuItems &)
 {
    // here should be filling of context menu for the given object
    // for the moment commented out, while TMenuItems is not available in libHist
@@ -65,7 +65,8 @@ bool THistDrawable<DIMENSIONS>::UpdateOldHist()
    }
 
    std::array<TAxisView, DIMENSIONS> axes;
-   for (int i = 0; i < DIMENSIONS; ++i) axes[i] = implBase->GetAxis(i);
+   for (int i = 0; i < DIMENSIONS; ++i)
+      axes[i] = implBase->GetAxis(i);
 
    TH1 *old = nullptr;
 
@@ -112,7 +113,8 @@ bool THistDrawable<DIMENSIONS>::UpdateOldHist()
 
    int nBins = implBase->GetNBins();
    old->SetBinsLength(nBins);
-   if (implBase->HasBinUncertainty()) old->Sumw2();
+   if (implBase->HasBinUncertainty())
+      old->Sumw2();
 
    // Set the bin content + uncertainty.
    for (int binidx = 0; binidx < nBins; ++binidx) {
@@ -125,14 +127,15 @@ bool THistDrawable<DIMENSIONS>::UpdateOldHist()
 
 namespace ROOT {
 namespace Experimental {
+
 namespace Internal {
 template class THistPainterBase<1>;
 template class THistPainterBase<2>;
 template class THistPainterBase<3>;
+} // namespace Internal
 
 template class THistDrawable<1>;
 template class THistDrawable<2>;
 template class THistDrawable<3>;
-}
-}
-}
+} // namespace Experimental
+} // namespace ROOT
