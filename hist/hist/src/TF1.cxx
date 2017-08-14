@@ -435,7 +435,7 @@ TF1::TF1(const char *name, const char *formula, Double_t xmin, Double_t xmax, EA
    // Create rep formula (no need to add to gROOT list since we will add the TF1 object)
 
    // First check if we are making a convolution
-   if (TString(formula, 5) == "CONV(" && formula[strlen(formula)-1] == ')') {
+   if (TString(formula, 5) == "CONV(" && formula[strlen(formula) - 1] == ')') {
       // Look for single ',' delimiter
       int delimPosition = -1;
       int parenCount = 0;
@@ -455,9 +455,8 @@ TF1::TF1(const char *name, const char *formula, Double_t xmin, Double_t xmax, EA
          Error("TF1", "CONV takes 2 arguments. Only one argument found in : %s", formula);
 
       // Having found the delimiter, define the first and second formulas
-      TString formula1 = TString(TString(formula)(5, delimPosition-5));
-      TString formula2 = TString(TString(formula)(delimPosition+1,
-                                                  strlen(formula)-1-(delimPosition+1)));
+      TString formula1 = TString(TString(formula)(5, delimPosition - 5));
+      TString formula2 = TString(TString(formula)(delimPosition + 1, strlen(formula) - 1 - (delimPosition + 1)));
       // remove spaces from these formulas
       formula1.ReplaceAll(' ', "");
       formula2.ReplaceAll(' ', "");
@@ -475,9 +474,10 @@ TF1::TF1(const char *name, const char *formula, Double_t xmin, Double_t xmax, EA
 
       // (note: currently ignoring `useFFT` option)
       fNpar = conv->GetNpar();
-      fNdim = 1; // (note: may want to extend this in the future?)
+      fNdim = 1;                         // (note: may want to extend this in the future?)
       fType = EFType::kPtrScalarFreeFcn; // (note: may want to add new fType for this case)
-      using Fnc_t = typename ROOT::Internal::GetFunctorType<decltype(ROOT::Internal::GetTheRightOp(&TF1Convolution::operator()))>::type;
+      using Fnc_t = typename ROOT::Internal::GetFunctorType<decltype(
+         ROOT::Internal::GetTheRightOp(&TF1Convolution::operator()))>::type;
       fFunctor = new TF1::TF1FunctorPointerImpl<Fnc_t>(ROOT::Math::ParamFunctorTempl<Fnc_t>(conv));
       fParams = new TF1Parameters(fNpar); // default to zeros (TF1Convolution has no GetParameters())
       // set parameter names
@@ -496,19 +496,19 @@ TF1::TF1(const char *name, const char *formula, Double_t xmin, Double_t xmax, EA
          int cst2 = function2->GetParNumber("Constant");
          this->SetParameter(cst1, function1->GetParameter(cst1) * function2->GetParameter(cst2));
          // and copy parameters from function2
-         for(int i=0; i < f2Npar; i++)
+         for (int i = 0; i < f2Npar; i++)
             if (i < cst2)
                this->SetParameter(f1Npar + i, function2->GetParameter(i));
             else if (i > cst2)
                this->SetParameter(f1Npar + i - 1, function2->GetParameter(i));
       } else {
          // or if no constant, simply copy parameters from function2
-         for (int i=0; i < f2Npar; i++)
+         for (int i = 0; i < f2Npar; i++)
             this->SetParameter(i + f1Npar, function2->GetParameter(i));
       }
-      
+
       // Then check if we need NSUM syntax:
-   } else if (TString(formula, 5) == "NSUM(" && formula[strlen(formula)-1] == ')') {
+   } else if (TString(formula, 5) == "NSUM(" && formula[strlen(formula) - 1] == ')') {
       // using comma as delimiter
       char delimiter = ',';
       // first, remove "NSUM(" and ")" and spaces
@@ -754,10 +754,9 @@ Bool_t TF1::AddToGlobalList(Bool_t on)
 
 // Defines the formula that a given term uses, if not already defined,
 // and appends "sanitized" formula to `fullFormula` string
-void TF1::DefineNSUMTerm(TObjArray *newFuncs, TObjArray *coeffNames,
-                         TString &fullFormula,
-                         TString &formula, int termStart, int termEnd,
-                         Double_t xmin, Double_t xmax) {
+void TF1::DefineNSUMTerm(TObjArray *newFuncs, TObjArray *coeffNames, TString &fullFormula, TString &formula,
+                         int termStart, int termEnd, Double_t xmin, Double_t xmax)
+{
    TString originalTerm = formula(termStart, termEnd-termStart);
    int coeffLength = TermCoeffLength(originalTerm);
    if (coeffLength != -1)
